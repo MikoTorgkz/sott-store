@@ -45,7 +45,11 @@ if (persistentUploadDir && getStorageStatus().mode === 'railway-volume') {
 }
 app.use(express.static(publicDir, {
   extensions: ['html'],
-  maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+  maxAge: 0,
+  etag: true,
+  setHeaders(res, filePath) {
+    if (/\.(?:html|css|js)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+  },
 }));
 
 app.get('/', (_req, res) => {
