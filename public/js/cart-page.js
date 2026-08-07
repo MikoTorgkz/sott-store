@@ -31,6 +31,7 @@
 
     const items = window.SottCart.readItems().map((item) => ({ productId: item.productId, size: item.size, quantity: item.quantity }));
     if (!items.length) return showCheckoutError(message, 'Корзина пуста');
+    if (!form.dataset.requestId) form.dataset.requestId = createRequestId();
 
     button.disabled = true;
     button.textContent = 'Создаём заказ...';
@@ -39,7 +40,7 @@
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ name, city, whatsapp, items }),
+        body: JSON.stringify({ name, city, whatsapp, items, requestId: form.dataset.requestId }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Не удалось создать заказ. Попробуйте ещё раз');
@@ -51,6 +52,16 @@
       button.disabled = false;
       button.textContent = 'Создать заказ';
     }
+  }
+
+  function createRequestId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+    }
+    return `fallback-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
   }
 
   function showCheckoutError(element, text) {
@@ -68,7 +79,7 @@
 
     document.querySelector('[data-cart-items]').innerHTML = items.map((item) => `
       <article class="cart-line" data-cart-line>
-        <a class="cart-line-image" href="${productUrl(item)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}"></a>
+        <a class="cart-line-image" href="${productUrl(item)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy"></a>
         <div class="cart-line-info"><h2><a href="${productUrl(item)}">${escapeHtml(item.name)}</a></h2><p>Размер: <strong>${escapeHtml(item.size)}</strong></p><span>${window.SottCatalog.formatPrice(item.price)} / шт.</span></div>
         <div class="cart-line-quantity"><button type="button" data-line-minus data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Уменьшить количество">−</button><span>${item.quantity}</span><button type="button" data-line-plus data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Увеличить количество">+</button></div>
         <strong class="cart-line-total">${window.SottCatalog.formatPrice(item.price * item.quantity)}</strong>
@@ -78,6 +89,7 @@
     const total = window.SottCart.getTotal(items);
     document.querySelector('[data-cart-subtotal]').textContent = window.SottCatalog.formatPrice(total);
     document.querySelector('[data-cart-total]').textContent = window.SottCatalog.formatPrice(total);
+    document.querySelectorAll('[data-cart-items] img').forEach((image) => image.addEventListener('error', () => { image.src = '/assets/product-placeholder.svg'; }, { once: true }));
   }
 
   function handleCartClick(event) {
