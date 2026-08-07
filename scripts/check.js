@@ -9,6 +9,8 @@ const requiredFiles = [
   'public/styles.css',
   'public/app.js',
   'public/assets/sott-logo.jpg',
+  'public/assets/hero-fashion.svg',
+  'public/assets/season-fashion.svg',
   'public/assets/categories/shirts.svg',
   'public/assets/categories/trousers.svg',
   'public/assets/categories/outerwear.svg',
@@ -42,9 +44,19 @@ if (!html.includes('styles.css') || !html.includes('app.js')) {
   console.error('index.html must reference styles.css and app.js');
   process.exit(1);
 }
+if (!html.includes('class="menu-toggle"') || !html.includes('id="main-nav"')) {
+  console.error('Mobile menu controls are missing from index.html');
+  process.exit(1);
+}
+const localAssets = [...html.matchAll(/(?:src|href)="\/(assets\/[^"#?]+)"/g)].map((match) => match[1]);
+const missingAssets = localAssets.filter((asset) => !fs.existsSync(path.join(root, 'public', asset)));
+if (missingAssets.length) {
+  console.error(`Missing referenced assets:\n${missingAssets.join('\n')}`);
+  process.exit(1);
+}
 if (!css.includes('@media') || !css.includes('overflow-x: hidden')) {
   console.error('Responsive CSS safeguards are missing');
   process.exit(1);
 }
 
-console.log(`Check passed: ${requiredFiles.length} files present, JavaScript syntax and responsive CSS basics verified.`);
+console.log(`Check passed: ${requiredFiles.length} files present, ${localAssets.length} page assets resolved, JavaScript syntax, menu markup and responsive CSS basics verified.`);

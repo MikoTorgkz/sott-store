@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 760" role="img" aria-labelledby="title desc">
+  <title id="title">Fashion-образ SOTT</title><desc id="desc">Абстрактная редакционная иллюстрация мужчины в бежевой куртке и коричневых брюках.</desc>
+  <rect width="760" height="760" fill="#c9a37e"/>
+  <path d="M0 0h280L0 760z" fill="#e0c7aa" opacity=".55"/>
+  <circle cx="584" cy="126" r="174" fill="#d96b1b" opacity=".78"/>
+  <path d="M510 84c57 0 89 41 82 98l-7 53c-7 49-42 78-82 77-42-1-72-33-76-83l-4-51c-5-56 31-94 87-94Z" fill="#8a593d"/>
+  <path d="M450 287c25-15 46-26 71-27 30-1 62 13 89 31l90 130-96 58-44-69 17 273H353l11-273-43 70-96-58 86-127c31-7 66-12 139-8Z" fill="#e3d1b9"/>
+  <path d="M412 286 470 405l48-144 57 33-52 216-96-11-53-199z" fill="#4b3024" opacity=".94"/>
+  <path d="m406 474-29 286h108l34-220 35 220h110l-46-300z" fill="#543527"/>
+  <path d="M406 470h212M465 311l53 79 54-86M518 390v136" fill="none" stroke="#f5eadc" stroke-width="7" opacity=".7"/>
+  <path d="M332 514c-33 4-56-6-76-32l-40-57 55-39 48 69c12 18 20 34 13 59ZM627 508c33 2 56-9 75-36l37-59-57-37-44 72c-11 18-18 35-11 60Z" fill="#8a593d"/>
+  <rect x="74" y="630" width="120" height="4" rx="2" fill="#3a2118" opacity=".55"/>
+  <rect x="74" y="644" width="72" height="4" rx="2" fill="#3a2118" opacity=".32"/>
+</svg>
