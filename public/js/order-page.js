@@ -28,7 +28,7 @@
   function createOrderItem(item) {
     const article = document.createElement('article');
     article.className = 'public-order-item';
-    const image = document.createElement('img'); image.src = item.image; image.alt = item.name;
+    const image = document.createElement('img'); image.src = item.image || '/assets/product-placeholder.svg'; image.alt = item.name; image.loading = 'lazy'; image.addEventListener('error', () => { image.src = '/assets/product-placeholder.svg'; }, { once: true });
     const copy = document.createElement('div'); copy.className = 'public-order-item-copy';
     const title = document.createElement('h3'); title.textContent = item.name;
     const meta = document.createElement('p'); meta.textContent = `Размер: ${item.size} · ${item.quantity} шт. · ${window.SottCatalog.formatPrice(item.unitPrice)} / шт.`;
