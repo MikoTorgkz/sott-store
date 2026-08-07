@@ -6,6 +6,8 @@ const publicDir = path.join(__dirname, 'public');
 const localUploadDir = path.join(publicDir, 'uploads', 'products');
 
 function getUploadDirectory() {
+  const configuredRoot = String(process.env.UPLOADS_DIR || '').trim();
+  if (configuredRoot && path.isAbsolute(configuredRoot)) return path.join(configuredRoot, 'products');
   const railwayMount = String(process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
   if (railwayMount && path.isAbsolute(railwayMount)) return path.join(railwayMount, 'products');
   if (String(process.env.PRODUCT_STORAGE || '').trim().toLowerCase() === 'local' && process.env.NODE_ENV !== 'production') return localUploadDir;
@@ -13,12 +15,13 @@ function getUploadDirectory() {
 }
 
 function getStorageStatus() {
+  const configuredRoot = String(process.env.UPLOADS_DIR || '').trim();
   const railwayMount = String(process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
   const uploadDir = getUploadDirectory();
   return {
     configured: Boolean(uploadDir),
-    mode: railwayMount && uploadDir ? 'railway-volume' : uploadDir ? 'local' : 'unconfigured',
-    message: uploadDir ? '' : 'Хранилище изображений ещё не настроено',
+    mode: configuredRoot && uploadDir ? 'persistent' : railwayMount && uploadDir ? 'railway-volume' : uploadDir ? 'local' : 'unconfigured',
+    message: uploadDir ? '' : 'Хранилище фотографий не настроено',
   };
 }
 
