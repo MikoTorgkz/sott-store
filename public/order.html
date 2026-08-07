@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#d96b1b">
+  <title>Заказ SOTT</title><link rel="stylesheet" href="/styles.css"><script src="/js/products.js" defer></script><script src="/js/order-page.js" defer></script>
+</head>
+<body class="order-document">
+  <div class="announcement">Новая коллекция · SOTT · Шымкент</div>
+  <header class="order-simple-header"><div class="container"><a class="brand" href="/" aria-label="SOTT — на главную"><span class="brand-logo-crop"><img src="/assets/sott-logo.jpg" alt="SOTT — ерлер киімі"></span></a><a class="order-back-link" href="/">Вернуться в магазин →</a></div></header>
+  <main class="container public-order" data-order-page>
+    <div class="order-loading" data-order-loading>Загружаем заказ…</div>
+    <div data-order-content hidden>
+      <div class="public-order-head"><span>SOTT · заказ <b data-order-short></b></span><h1>Заказ SOTT</h1><p>Сохраните эту страницу — по ней магазин сможет быстро проверить состав заказа.</p></div>
+      <div class="public-order-grid">
+        <section class="order-card"><h2>Данные клиента</h2><dl class="customer-data"><div><dt>Имя</dt><dd data-order-name></dd></div><div><dt>Город</dt><dd data-order-city></dd></div><div><dt>WhatsApp</dt><dd data-order-whatsapp></dd></div><div><dt>Дата заказа</dt><dd data-order-date></dd></div></dl></section>
+        <section class="order-card order-items-card"><h2>Состав заказа</h2><div data-order-items></div><div class="public-order-total"><span>Итого</span><strong data-order-total></strong></div></section>
+      </div>
+    </div>
+    <div class="order-load-error" data-order-error hidden><h1>Не удалось загрузить заказ</h1><p>Попробуйте обновить страницу чуть позже.</p><a class="primary-button" href="/">Вернуться в магазин →</a></div>
+  </main>
+</body>
+</html>

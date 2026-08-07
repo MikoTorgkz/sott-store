@@ -3,9 +3,59 @@
     render();
     window.addEventListener('sott:cart-changed', render);
     document.querySelector('[data-cart-items]').addEventListener('click', handleCartClick);
-    document.querySelector('[data-checkout]').addEventListener('click', () => {
-      document.querySelector('[data-checkout-message]').textContent = 'Оформление заказа будет подключено на следующем этапе';
-    });
+    document.querySelector('[data-checkout]').addEventListener('click', openCheckout);
+    document.querySelector('[data-checkout-form]').addEventListener('submit', submitOrder);
+  }
+
+  function openCheckout() {
+    const form = document.querySelector('[data-checkout-form]');
+    const button = document.querySelector('[data-checkout]');
+    form.hidden = false;
+    button.hidden = true;
+    button.setAttribute('aria-expanded', 'true');
+    form.querySelector('input')?.focus();
+  }
+
+  async function submitOrder(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('[data-checkout-submit]');
+    const message = form.querySelector('[data-checkout-message]');
+    const data = new FormData(form);
+    const name = String(data.get('name') || '').trim();
+    const city = String(data.get('city') || '').trim();
+    const whatsapp = String(data.get('whatsapp') || '').trim();
+    if (!name) return showCheckoutError(message, 'Введите имя');
+    if (!city) return showCheckoutError(message, 'Введите город');
+    if (!whatsapp) return showCheckoutError(message, 'Укажите корректный WhatsApp');
+
+    const items = window.SottCart.readItems().map((item) => ({ productId: item.productId, size: item.size, quantity: item.quantity }));
+    if (!items.length) return showCheckoutError(message, 'Корзина пуста');
+
+    button.disabled = true;
+    button.textContent = 'Создаём заказ...';
+    message.textContent = '';
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name, city, whatsapp, items }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Не удалось создать заказ. Попробуйте ещё раз');
+      window.SottCart.clear();
+      if (result.whatsappUrl) window.open(result.whatsappUrl, '_blank', 'noopener');
+      window.location.assign(`/order-success?token=${encodeURIComponent(result.token)}`);
+    } catch (error) {
+      showCheckoutError(message, error.message || 'Не удалось создать заказ. Попробуйте ещё раз');
+      button.disabled = false;
+      button.textContent = 'Создать заказ';
+    }
+  }
+
+  function showCheckoutError(element, text) {
+    element.textContent = text;
+    return false;
   }
 
   function render() {
