@@ -74,22 +74,37 @@ async function run() {
   assert.deepEqual(detailCalls[0].values, [9]);
   assert.match(detailCalls[0].text, /WHERE o\.id = \$1/);
 
-  let updateQueries = 0;
-  const updatePool = {
+  const updateCalls = [];
+  let stockCommitted = false;
+  let stock = 5;
+  const client = {
     async query(text, values) {
-      updateQueries += 1;
-      assert.match(text, /SET status = \$1 WHERE id = \$2/);
-      assert.deepEqual(values, ['confirmed', 12]);
-      return { rows: [{ id: 12, status: 'confirmed' }] };
+      updateCalls.push({ text, values });
+      if (text.includes('SELECT id, status, stock_committed FROM orders')) return { rows: [{ id: 12, status: stockCommitted ? 'confirmed' : 'new', stock_committed: stockCommitted }] };
+      if (text.includes('FROM order_items WHERE order_id')) return { rows: [{ product_id: '1', product_name: 'Поло', size: 'M', quantity: 2 }] };
+      if (text.includes('FROM product_variants pv')) return { rows: [{ id: 91, stock_quantity: stock, is_active: true }] };
+      if (text.includes('stock_quantity=stock_quantity-$1')) { stock -= values[0]; return { rows: [] }; }
+      if (text.includes('stock_quantity=stock_quantity+$1')) { stock += values[0]; return { rows: [] }; }
+      if (text.includes('UPDATE orders SET status=')) { stockCommitted = values[1]; return { rows: [{ id: 12, status: values[0], stock_committed: values[1] }] }; }
+      return { rows: [] };
     },
+    release() {},
   };
+  const updatePool = { connect: async () => client };
   assert.deepEqual(await updateOrderStatus(12, 'hacked', updatePool), { invalidStatus: true });
-  assert.equal(updateQueries, 0, 'invalid status must not execute SQL');
+  assert.equal(updateCalls.length, 0, 'invalid status must not execute SQL');
   const updated = await updateOrderStatus(12, 'confirmed', updatePool);
   assert.equal(updated.status, 'confirmed');
-  assert.equal(updateQueries, 1);
+  assert.equal(stock, 3, 'confirm must decrement stock once');
+  await updateOrderStatus(12, 'confirmed', updatePool);
+  assert.equal(stock, 3, 'repeated confirm must not decrement stock twice');
+  await updateOrderStatus(12, 'cancelled', updatePool);
+  assert.equal(stock, 5, 'cancelling a committed order must release stock exactly once');
+  await updateOrderStatus(12, 'cancelled', updatePool);
+  assert.equal(stock, 5, 'repeated cancellation must not release stock twice');
+  assert(updateCalls.some((call) => call.text.includes('FOR UPDATE')), 'order and variant rows must be locked during stock transition');
 
-  console.log('Admin logic passed: bcrypt credentials, server-side session invalidation, login rate limit, pagination, status whitelist and parameterized SQL verified.');
+  console.log('Admin logic passed: auth, pagination, status whitelist, row locks and exactly-once stock commit/release verified.');
 }
 
 run().catch((error) => {

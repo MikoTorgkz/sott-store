@@ -23,6 +23,10 @@
     const session = await api('/api/admin/session');
     csrfToken = session.csrfToken;
     setupNavigation();
+    if (window.location.pathname.startsWith('/admin/products')) {
+      if (!window.SottAdminProducts) throw new Error('Модуль товаров не загружен');
+      return window.SottAdminProducts.initialize({ content, title, api, csrfToken, showNotice, price, dateTime });
+    }
     const orderMatch = window.location.pathname.match(/^\/admin\/orders\/(\d+)$/);
     if (orderMatch) return renderOrder(Number(orderMatch[1]));
     if (window.location.pathname === '/admin/orders') return renderOrders();
@@ -30,8 +34,9 @@
   }
 
   function setupNavigation() {
+    const isProducts = window.location.pathname.startsWith('/admin/products');
     const isOrders = window.location.pathname.startsWith('/admin/orders');
-    document.querySelector(`[data-nav="${isOrders ? 'orders' : 'overview'}"]`)?.classList.add('active');
+    document.querySelector(`[data-nav="${isProducts ? 'products' : isOrders ? 'orders' : 'overview'}"]`)?.classList.add('active');
 
     logoutButton?.addEventListener('click', async () => {
       logoutButton.disabled = true;

@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { seedCatalog } = require('./catalog-seed');
 
 const databaseUrl = process.env.DATABASE_URL;
 const sslRequired = databaseUrl && /(?:[?&]sslmode=require(?:&|$))/i.test(databaseUrl);
@@ -40,9 +41,63 @@ async function initializeDatabase() {
       image_path TEXT NOT NULL
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id BIGSERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      slug VARCHAR(100) UNIQUE NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS products (
+      id BIGSERIAL PRIMARY KEY,
+      legacy_id VARCHAR(64) UNIQUE,
+      slug VARCHAR(160) UNIQUE NOT NULL,
+      name VARCHAR(200) NOT NULL,
+      category_id BIGINT NOT NULL REFERENCES categories(id),
+      price INTEGER NOT NULL CHECK (price > 0),
+      short_description VARCHAR(500) NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      is_published BOOLEAN NOT NULL DEFAULT FALSE,
+      is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+      is_new BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_variants (
+      id BIGSERIAL PRIMARY KEY,
+      product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      size VARCHAR(40) NOT NULL,
+      stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      UNIQUE (product_id, size)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_images (
+      id BIGSERIAL PRIMARY KEY,
+      product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      image_url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (product_id, image_url)
+    )
+  `);
+  await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed BOOLEAN NOT NULL DEFAULT FALSE');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_products_published_updated ON products (is_published, updated_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants (product_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images (product_id, sort_order)');
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_product_images_one_primary ON product_images (product_id) WHERE is_primary');
+  await seedCatalog(pool);
   return true;
 }
 

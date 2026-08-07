@@ -1,40 +1,35 @@
 const assert = require('assert');
 const { normalizeWhatsApp, validateOrderInput, createOrder, getOrderByToken, OrderValidationError } = require('../orders');
-const catalog = require('../public/js/products.js');
 
 function expectValidation(body, message) {
   assert.throws(() => validateOrderInput(body), (error) => error instanceof OrderValidationError && error.message === message);
 }
 
 const validBody = {
-  name: 'Меирбек',
-  city: 'Шымкент',
-  whatsapp: '8 (700) 123-45-67',
-  items: [{ productId: 'polo-001', size: 'M', quantity: 2, price: 1, total: 1 }],
+  name: 'Меирбек', city: 'Шымкент', whatsapp: '8 (700) 123-45-67',
+  items: [{ productId: '1', size: 'M', quantity: 2, price: 1, total: 1 }],
 };
 
 assert.strictEqual(normalizeWhatsApp('87001234567'), '+77001234567');
 assert.strictEqual(normalizeWhatsApp('+7 700 123-45-67'), '+77001234567');
-const validated = validateOrderInput(validBody);
-assert.strictEqual(validated.items[0].unitPrice, catalog.getProductById('polo-001').price, 'Server must ignore browser price');
-assert.strictEqual(validated.total, 31800, 'Server must calculate the real total');
-
+assert.deepStrictEqual(validateOrderInput(validBody).items, [{ productId: '1', size: 'M', quantity: 2 }], 'Browser price/total must be discarded before persistence');
 expectValidation({ ...validBody, name: '' }, 'Введите имя');
 expectValidation({ ...validBody, city: '' }, 'Введите город');
 expectValidation({ ...validBody, whatsapp: '123' }, 'Укажите корректный WhatsApp');
 expectValidation({ ...validBody, items: [] }, 'Корзина пуста');
-expectValidation({ ...validBody, items: [{ productId: 'missing', size: 'M', quantity: 1 }] }, 'Один из товаров не найден');
-expectValidation({ ...validBody, items: [{ productId: 'polo-001', size: 'S', quantity: 1 }] }, 'Выбранный размер недоступен');
-for (const quantity of [0, -1, 1.5, 100000, '2']) {
-  expectValidation({ ...validBody, items: [{ productId: 'polo-001', size: 'M', quantity }] }, 'Некорректное количество товара');
-}
+for (const quantity of [0, -1, 1.5, 11, '2']) expectValidation({ ...validBody, items: [{ productId: '1', size: 'M', quantity }] }, 'Некорректное количество товара');
 
-function createMockPool({ failItem = false } = {}) {
+function createMockPool(options = {}) {
   const queries = [];
   const client = {
     async query(text, params) {
       queries.push({ text, params });
-      if (failItem && text.includes('INSERT INTO order_items')) throw Object.assign(new Error('mock failure'), { code: 'MOCK' });
+      if (text.includes('FROM products p') && text.includes('product_variants')) {
+        if (options.missing) return { rows: [] };
+        if (options.badSize) return { rows: [{ id: 1, name: 'Поло из хлопка', price: 15900, is_published: true, size: null, stock_quantity: null, is_active: null }] };
+        return { rows: [{ id: 1, name: 'Поло из хлопка', price: 15900, is_published: true, size: 'M', stock_quantity: options.stock ?? 5, is_active: true, image_url: '/assets/products/polo.svg' }] };
+      }
+      if (options.failItem && text.includes('INSERT INTO order_items')) throw new Error('mock failure');
       if (text.includes('INSERT INTO orders')) return { rows: [{ id: '7', public_token: 'mock-token', customer_name: 'Меирбек', city: 'Шымкент', customer_whatsapp: '+77001234567', total_amount: 31800, status: 'new', created_at: new Date() }] };
       return { rows: [] };
     },
@@ -47,27 +42,26 @@ function createMockPool({ failItem = false } = {}) {
   const success = createMockPool();
   const created = await createOrder(validBody, success.pool);
   assert.strictEqual(created.status, 'new');
-  assert(success.queries.some((query) => query.text === 'BEGIN'));
-  assert(success.queries.some((query) => query.text === 'COMMIT'));
-  const itemInsert = success.queries.find((query) => query.text.includes('INSERT INTO order_items'));
-  assert.strictEqual(itemInsert.params[5], 15900, 'SQL snapshot must use catalog price');
-  assert.strictEqual(itemInsert.params[6], 31800, 'SQL line total must be server-calculated');
+  const productLookup = success.queries.find((q) => q.text.includes('FROM products p'));
+  assert.deepStrictEqual(productLookup.params, ['1', 'M']);
+  const itemInsert = success.queries.find((q) => q.text.includes('INSERT INTO order_items'));
+  assert.strictEqual(itemInsert.params[5], 15900, 'Snapshot price must come from database');
+  assert.strictEqual(itemInsert.params[6], 31800, 'Line total must be server-calculated');
+  assert(success.queries.some((q) => q.text === 'COMMIT'));
 
+  await assert.rejects(createOrder(validBody, createMockPool({ missing: true }).pool), /Один из товаров не найден/);
+  await assert.rejects(createOrder(validBody, createMockPool({ badSize: true }).pool), /Выбранный размер недоступен/);
+  await assert.rejects(createOrder(validBody, createMockPool({ stock: 1 }).pool), /осталось только 1 шт/);
   const failure = createMockPool({ failItem: true });
   await assert.rejects(createOrder(validBody, failure.pool));
-  assert(failure.queries.some((query) => query.text === 'ROLLBACK'), 'Failed item insert must roll back the transaction');
-  assert(!failure.queries.some((query) => query.text === 'COMMIT'), 'Failed transaction must not commit');
+  assert(failure.queries.some((q) => q.text === 'ROLLBACK'));
+  assert(!failure.queries.some((q) => q.text === 'COMMIT'));
 
   const token = 'A'.repeat(32);
   let lookupParams;
-  const lookupPool = { query: async (sql, params) => {
-    lookupParams = params;
-    assert(sql.includes('WHERE o.public_token = $1'), 'Order lookup must be parameterized');
-    return { rows: [] };
-  } };
+  const lookupPool = { query: async (sql, params) => { lookupParams = params; assert(sql.includes('WHERE o.public_token = $1')); return { rows: [] }; } };
   assert.strictEqual(await getOrderByToken(token, lookupPool), null);
   assert.deepStrictEqual(lookupParams, [token]);
   assert.strictEqual(await getOrderByToken('invalid-token', lookupPool), null);
-
-  console.log('Order logic passed: server price/total, contact validation, size/quantity safety, parameterized lookup and transaction rollback verified.');
+  console.log('Order logic passed: DB price/stock/size validation, browser-price rejection, snapshots, parameterized lookup and rollback verified.');
 })().catch((error) => { console.error(error); process.exit(1); });

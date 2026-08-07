@@ -3,6 +3,14 @@ const { ORDER_STATUSES } = require('./orders');
 
 const PAGE_SIZE = 20;
 
+class InventoryError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'InventoryError';
+    this.status = 409;
+  }
+}
+
 async function getDashboard(pool) {
   const database = pool || getPool();
   const [statsResult, recentResult] = await Promise.all([
@@ -104,11 +112,57 @@ async function getAdminOrderById(id, pool) {
 async function updateOrderStatus(id, status, pool) {
   if (!ORDER_STATUSES.includes(status)) return { invalidStatus: true };
   const database = pool || getPool();
-  const result = await database.query(
-    `UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, status`,
-    [status, id],
+  const client = await database.connect();
+  try {
+    await client.query('BEGIN');
+    const orderResult = await client.query('SELECT id, status, stock_committed FROM orders WHERE id=$1 FOR UPDATE', [id]);
+    if (!orderResult.rows[0]) { await client.query('ROLLBACK'); return null; }
+    let stockCommitted = orderResult.rows[0].stock_committed === true;
+    if ((status === 'confirmed' || status === 'completed') && !stockCommitted) {
+      await changeOrderStock(client, id, 'commit');
+      stockCommitted = true;
+    } else if (status === 'cancelled' && stockCommitted) {
+      await changeOrderStock(client, id, 'release');
+      stockCommitted = false;
+    }
+    const updated = await client.query(
+      'UPDATE orders SET status=$1, stock_committed=$2 WHERE id=$3 RETURNING id,status,stock_committed',
+      [status, stockCommitted, id],
+    );
+    await client.query('COMMIT');
+    return updated.rows[0] || null;
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (_rollbackError) { /* release below */ }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function changeOrderStock(client, orderId, mode) {
+  const itemsResult = await client.query(
+    'SELECT product_id, product_name, size, quantity FROM order_items WHERE order_id=$1 ORDER BY product_id ASC, size ASC, id ASC',
+    [orderId],
   );
-  return result.rows[0] || null;
+  for (const item of itemsResult.rows) {
+    const variantResult = await client.query(
+      `SELECT pv.id, pv.stock_quantity, pv.is_active
+         FROM product_variants pv JOIN products p ON p.id=pv.product_id
+        WHERE (p.id::text=$1 OR p.legacy_id=$1) AND pv.size=$2
+        FOR UPDATE OF pv`,
+      [item.product_id, item.size],
+    );
+    const variant = variantResult.rows[0];
+    if (!variant) throw new InventoryError(`Размер ${item.size} для «${item.product_name}» больше недоступен`);
+    const quantity = Number(item.quantity);
+    const stock = Number(variant.stock_quantity);
+    if (mode === 'commit') {
+      if (!variant.is_active || stock < quantity) throw new InventoryError(`В размере ${item.size} осталось только ${Math.max(0, stock)} шт.`);
+      await client.query('UPDATE product_variants SET stock_quantity=stock_quantity-$1 WHERE id=$2', [quantity, variant.id]);
+    } else {
+      await client.query('UPDATE product_variants SET stock_quantity=stock_quantity+$1 WHERE id=$2', [quantity, variant.id]);
+    }
+  }
 }
 
 function mapOrderSummary(row) {
@@ -132,4 +186,4 @@ function clampPage(value) {
   return Math.min(page, 100000);
 }
 
-module.exports = { PAGE_SIZE, getDashboard, listOrders, getAdminOrderById, updateOrderStatus };
+module.exports = { PAGE_SIZE, InventoryError, getDashboard, listOrders, getAdminOrderById, updateOrderStatus, changeOrderStock };

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 900" role="img" aria-labelledby="title desc">
+  <title id="title">SOTT</title><desc id="desc">Заглушка фотографии товара</desc>
+  <rect width="720" height="900" fill="#f2e9dc"/><rect x="55" y="55" width="610" height="790" rx="22" fill="#faf7f1"/>
+  <path d="M280 275c22-29 50-45 80-45s58 16 80 45l108 67-62 102-55-31v216H289V413l-55 31-62-102 108-67Z" fill="#d96b1b" opacity=".88"/>
+  <path d="M320 266c5 33 75 33 80 0" fill="none" stroke="#3a2118" stroke-width="12" stroke-linecap="round"/>
+  <text x="360" y="740" text-anchor="middle" fill="#3a2118" font-family="Arial,sans-serif" font-size="54" font-weight="700" letter-spacing="14">SOTT</text>
+</svg>

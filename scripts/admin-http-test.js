@@ -23,6 +23,10 @@ async function run() {
 
     response = await fetch(`${base}/api/admin/orders`);
     assert.equal(response.status, 401);
+    response = await fetch(`${base}/admin/products`, { redirect: 'manual' });
+    assert.equal(response.status, 302, 'product admin page must require a session');
+    response = await fetch(`${base}/api/admin/products`);
+    assert.equal(response.status, 401, 'product admin API must require a session');
 
     response = await fetch(`${base}/admin/login`);
     assert.equal(response.status, 200);
@@ -71,6 +75,15 @@ async function run() {
     response = await fetch(`${base}/api/admin/session`, { headers: { Cookie: cookie } });
     assert.equal(response.status, 200);
     assert.equal((await response.json()).authenticated, true);
+
+    response = await fetch(`${base}/admin/products`, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /data-nav="products"/);
+
+    response = await fetch(`${base}/api/admin/products`, {
+      method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json', 'X-CSRF-Token': login.csrfToken }, body: '{}',
+    });
+    assert.equal(response.status, 403, 'product mutations without Origin must fail CSRF protection');
 
     response = await fetch(`${base}/api/admin/orders/1/status`, {
       method: 'PATCH',

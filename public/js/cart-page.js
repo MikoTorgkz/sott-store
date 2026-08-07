@@ -68,8 +68,8 @@
 
     document.querySelector('[data-cart-items]').innerHTML = items.map((item) => `
       <article class="cart-line" data-cart-line>
-        <a class="cart-line-image" href="${productUrl(item.productId)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}"></a>
-        <div class="cart-line-info"><h2><a href="${productUrl(item.productId)}">${escapeHtml(item.name)}</a></h2><p>Размер: <strong>${escapeHtml(item.size)}</strong></p><span>${window.SottCatalog.formatPrice(item.price)} / шт.</span></div>
+        <a class="cart-line-image" href="${productUrl(item)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}"></a>
+        <div class="cart-line-info"><h2><a href="${productUrl(item)}">${escapeHtml(item.name)}</a></h2><p>Размер: <strong>${escapeHtml(item.size)}</strong></p><span>${window.SottCatalog.formatPrice(item.price)} / шт.</span></div>
         <div class="cart-line-quantity"><button type="button" data-line-minus data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Уменьшить количество">−</button><span>${item.quantity}</span><button type="button" data-line-plus data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Увеличить количество">+</button></div>
         <strong class="cart-line-total">${window.SottCatalog.formatPrice(item.price * item.quantity)}</strong>
         <button class="cart-line-remove" type="button" data-line-remove data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Удалить ${escapeHtml(item.name)}">Удалить</button>
@@ -92,9 +92,8 @@
     if (button.hasAttribute('data-line-plus')) window.SottCart.setQuantity(productId, size, item.quantity + 1);
   }
 
-  function productUrl(productId) {
-    const product = window.SottCatalog.getProductById(productId);
-    return product ? `/product/${product.slug}` : '/#catalog';
+  function productUrl(item) {
+    return item && typeof item.slug === 'string' && item.slug ? `/product/${encodeURIComponent(item.slug)}` : '/#catalog';
   }
 
   function escapeHtml(value) {
