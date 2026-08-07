@@ -57,6 +57,7 @@
     const thumbnails = document.querySelector('[data-product-thumbnails]');
     main.src = product.images[0] || '/assets/product-placeholder.svg';
     main.alt = product.name;
+    main.addEventListener('error', useImageFallback, { once: true });
     const images = product.images.length ? product.images : ['/assets/product-placeholder.svg'];
     thumbnails.replaceChildren(...images.map((image, index) => {
       const button = document.createElement('button');
@@ -67,6 +68,7 @@
       const preview = document.createElement('img');
       preview.src = image;
       preview.alt = `${product.name}, вид ${index + 1}`;
+      preview.addEventListener('error', useImageFallback, { once: true });
       button.append(preview);
       return button;
     }));
@@ -78,6 +80,10 @@
       main.alt = `${product.name}, вид ${index + 1}`;
       thumbnails.querySelectorAll('.thumbnail-button').forEach((item) => item.classList.toggle('is-active', item === button));
     });
+  }
+
+  function useImageFallback(event) {
+    event.currentTarget.src = '/assets/product-placeholder.svg';
   }
 
   function renderSizes() {
