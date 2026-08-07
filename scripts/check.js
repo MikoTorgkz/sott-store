@@ -8,6 +8,7 @@ const requiredFiles = [
   'public/index.html',
   'public/styles.css',
   'public/app.js',
+  'public/assets/sott-logo.jpg',
   'public/assets/categories/shirts.svg',
   'public/assets/categories/trousers.svg',
   'public/assets/categories/outerwear.svg',
