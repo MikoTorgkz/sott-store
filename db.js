@@ -89,6 +89,8 @@ async function initializeDatabase() {
     )
   `);
   await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed BOOLEAN NOT NULL DEFAULT FALSE');
+  await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_request_id VARCHAR(64)');
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_request_id ON orders (client_request_id) WHERE client_request_id IS NOT NULL');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)');
