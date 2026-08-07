@@ -37,6 +37,7 @@
     renderSizes();
     renderSizeTable();
     bindControls();
+    bindFavorite();
     setQuantity(1);
   }
 
@@ -129,6 +130,19 @@
     document.querySelector('[data-size-guide-close]').addEventListener('click', closeSizeModal);
     document.querySelector('[data-size-modal-backdrop]').addEventListener('click', closeSizeModal);
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeSizeModal(); });
+  }
+
+  function bindFavorite() {
+    const button = document.querySelector('[data-product-favorite]');
+    if (!button || !window.SottFavorites) return;
+    const sync = () => {
+      const active = window.SottFavorites.has(product.id);
+      button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', `${active ? 'Удалить' : 'Добавить'} ${product.name} ${active ? 'из' : 'в'} избранного`);
+      button.querySelector('span').textContent = active ? 'В избранном' : 'В избранное';
+    };
+    button.addEventListener('click', () => { window.SottFavorites.toggle(product.id); sync(); });
+    window.addEventListener('sott:favorites-change', sync); sync();
   }
 
   function setQuantity(next) {

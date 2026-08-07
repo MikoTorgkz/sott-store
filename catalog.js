@@ -1,6 +1,7 @@
 const { getPool } = require('./db');
 
 const PRODUCT_PAGE_SIZE = 20;
+const PUBLIC_PAGE_SIZE = 12;
 const MAX_PRICE = 100000000;
 const MAX_STOCK = 100000;
 const PLACEHOLDER_IMAGE = '/assets/product-placeholder.svg';
@@ -14,32 +15,94 @@ class CatalogValidationError extends Error {
 }
 
 async function listPublicProducts(filters = {}, pool) {
-  const database = pool || getPool();
-  const values = [];
-  const conditions = ['p.is_published = TRUE', 'c.is_active = TRUE'];
-  if (filters.category) {
-    values.push(String(filters.category).slice(0, 100));
-    conditions.push(`c.slug = $${values.length}`);
-  }
-  if (filters.featured) conditions.push('p.is_featured = TRUE');
-  if (filters.isNew) conditions.push('p.is_new = TRUE');
-  values.push(Math.min(60, Math.max(1, Number(filters.limit) || 24)));
-  const result = await database.query(publicListSql(conditions, values.length), values);
-  if (filters.featured && !result.rows.length) {
-    return listPublicProducts({ ...filters, featured: false, limit: filters.limit || 6 }, database);
-  }
-  return result.rows.map(mapPublicCard);
+  const result = await searchPublicProducts(filters, pool);
+  return result.items;
 }
 
-function publicListSql(conditions, limitIndex) {
+async function searchPublicProducts(filters = {}, pool) {
+  const database = pool || getPool();
+  const page = clampPage(filters.page);
+  const requestedLimit = Number(filters.limit);
+  const pageSize = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(100, requestedLimit) : PUBLIC_PAGE_SIZE;
+  const values = [];
+  const conditions = ['p.is_published = TRUE', 'c.is_active = TRUE'];
+  const category = typeof filters.category === 'string' ? filters.category.trim() : '';
+  if (category && !/^[a-z0-9-]{1,100}$/.test(category)) throw new CatalogValidationError('Некорректная категория');
+  if (category) {
+    values.push(category);
+    conditions.push(`c.slug = $${values.length}`);
+  }
+  const q = typeof filters.q === 'string' ? filters.q.trim().replace(/\s+/g, ' ') : '';
+  if (q.length > 100) throw new CatalogValidationError('Слишком длинный поисковый запрос');
+  if (q) { values.push(`%${q}%`); conditions.push(`(p.name ILIKE $${values.length} OR p.short_description ILIKE $${values.length} OR c.name ILIKE $${values.length})`); }
+  const size = typeof filters.size === 'string' ? filters.size.trim() : '';
+  if (size.length > 40) throw new CatalogValidationError('Некорректный размер');
+  if (size) { values.push(size); conditions.push(`EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id=p.id AND sv.size=$${values.length} AND sv.is_active=TRUE AND sv.stock_quantity>0)`); }
+  const minPrice = parsePublicPrice(filters.minPrice, 'минимальную цену');
+  const maxPrice = parsePublicPrice(filters.maxPrice, 'максимальную цену');
+  if (minPrice !== null) { values.push(minPrice); conditions.push(`p.price >= $${values.length}`); }
+  if (maxPrice !== null) { values.push(maxPrice); conditions.push(`p.price <= $${values.length}`); }
+  if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) throw new CatalogValidationError('Минимальная цена не может быть больше максимальной');
+  if (filters.inStock) conditions.push('EXISTS (SELECT 1 FROM product_variants av WHERE av.product_id=p.id AND av.is_active=TRUE AND av.stock_quantity>0)');
+  if (filters.featured) conditions.push('p.is_featured = TRUE');
+  if (filters.isNew) conditions.push('p.is_new = TRUE');
+  const ids = parsePublicIds(filters.ids);
+  if (ids) { values.push(ids); conditions.push(`p.id = ANY($${values.length}::bigint[])`); }
+  const sort = normalizePublicSort(filters.sort);
+  const where = conditions.join(' AND ');
+  const countResult = await database.query(`SELECT COUNT(*)::int AS total FROM products p JOIN categories c ON c.id=p.category_id WHERE ${where}`, values);
+  const totalItems = Number(countResult.rows[0]?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const listValues = [...values, pageSize, (safePage - 1) * pageSize];
+  const result = await database.query(publicListSql(where, sort, listValues.length - 1, listValues.length), listValues);
+  return { items: result.rows.map(mapPublicCard), pagination: { page: safePage, pageSize, totalItems, totalPages }, filters: { q, category, size, minPrice, maxPrice, inStock: Boolean(filters.inStock), isNew: Boolean(filters.isNew), featured: Boolean(filters.featured), sort } };
+}
+
+async function listPublicSizes(pool) {
+  const database = pool || getPool();
+  const result = await database.query('SELECT DISTINCT pv.size FROM product_variants pv JOIN products p ON p.id=pv.product_id JOIN categories c ON c.id=p.category_id WHERE p.is_published=TRUE AND c.is_active=TRUE AND pv.is_active=TRUE AND pv.stock_quantity>0 ORDER BY pv.size ASC');
+  return result.rows.map((row) => row.size);
+}
+
+function parsePublicPrice(value, label) {
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > MAX_PRICE) throw new CatalogValidationError(`Проверьте ${label}`);
+  return number;
+}
+
+function parsePublicIds(value) {
+  if (!value) return null;
+  const source = Array.isArray(value) ? value : String(value).split(',');
+  if (source.length > 100) throw new CatalogValidationError('Слишком много товаров');
+  const ids = [...new Set(source.map((id) => parseId(id)).filter(Boolean))];
+  if (!ids.length) throw new CatalogValidationError('Некорректные идентификаторы товаров');
+  return ids;
+}
+
+function normalizePublicSort(value) {
+  return ['default', 'newest', 'price_asc', 'price_desc', 'name'].includes(value) ? value : 'default';
+}
+
+function publicSortSql(sort) {
+  if (sort === 'newest') return 'p.is_new DESC, p.created_at DESC, p.id DESC';
+  if (sort === 'price_asc') return 'p.price ASC, p.id DESC';
+  if (sort === 'price_desc') return 'p.price DESC, p.id DESC';
+  if (sort === 'name') return 'p.name ASC, p.id DESC';
+  return 'p.updated_at DESC, p.id DESC';
+}
+
+function publicListSql(where, sort, limitIndex, offsetIndex) {
   return `SELECT p.id, p.slug, p.name, p.price, p.is_featured, p.is_new,
                  c.name AS category_name, c.slug AS category_slug,
+                 EXISTS (SELECT 1 FROM product_variants pv WHERE pv.product_id=p.id AND pv.is_active=TRUE AND pv.stock_quantity>0) AS in_stock,
                  COALESCE((SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC LIMIT 1), '${PLACEHOLDER_IMAGE}') AS main_image
             FROM products p
             JOIN categories c ON c.id = p.category_id
-           WHERE ${conditions.join(' AND ')}
-           ORDER BY p.updated_at DESC, p.id DESC
-           LIMIT $${limitIndex}`;
+           WHERE ${where}
+           ORDER BY ${publicSortSql(sort)}
+           LIMIT $${limitIndex} OFFSET $${offsetIndex}`;
 }
 
 async function getPublicProductBySlug(slug, pool) {
@@ -312,7 +375,7 @@ function slugify(value) {
 }
 
 function mapPublicCard(row) {
-  return { id: String(row.id), slug: row.slug, name: row.name, price: Number(row.price), category: row.category_name, categorySlug: row.category_slug, mainImage: row.main_image, isFeatured: row.is_featured, isNew: row.is_new };
+  return { id: String(row.id), slug: row.slug, name: row.name, price: Number(row.price), category: row.category_name, categorySlug: row.category_slug, mainImage: row.main_image, isFeatured: row.is_featured, isNew: row.is_new, inStock: row.in_stock !== false };
 }
 
 function mapPublicDetail(row, variants, images) {
@@ -363,7 +426,7 @@ function clampPage(value) {
 
 module.exports = {
   PRODUCT_PAGE_SIZE, MAX_PRICE, MAX_STOCK, PLACEHOLDER_IMAGE, CatalogValidationError,
-  listPublicProducts, getPublicProductBySlug, listCategories, listAdminProducts, getAdminProductById,
+  listPublicProducts, searchPublicProducts, listPublicSizes, getPublicProductBySlug, listCategories, listAdminProducts, getAdminProductById,
   createProduct, updateProduct, setProductPublished, addProductImages, setPrimaryImage, deleteProductImage,
   validateProductInput, slugify,
 };

@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="/styles.css">
   <script src="/js/products.js" defer></script>
   <script src="/js/cart.js" defer></script>
+  <script src="/js/favorites.js" defer></script>
+  <script src="/js/storefront-card.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/js/home.js" defer></script>
 </head>
@@ -27,19 +29,20 @@
 
       <nav class="main-nav" id="main-nav" aria-label="Основная навигация">
         <a href="#top">Главная</a>
-        <a href="#catalog">Каталог</a>
-        <a href="#new">Новинки</a>
+        <a href="/catalog">Каталог</a>
+        <a href="/catalog?new=1">Новинки</a>
         <a href="#about">О нас</a>
         <a href="#contacts">Контакты</a>
       </nav>
 
       <div class="header-actions" aria-label="Демонстрационные элементы">
-        <button class="icon-button" type="button" aria-label="Поиск — скоро" title="Поиск — скоро">
+        <button class="icon-button" type="button" data-search-toggle aria-expanded="false" aria-label="Поиск" title="Поиск">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.3 15.3 4.5 4.5"/></svg>
         </button>
-        <button class="icon-button" type="button" aria-label="Избранное — скоро" title="Избранное — скоро">
+        <a class="icon-button favorite-header" href="/favorites" aria-label="Избранное" title="Избранное">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg>
-        </button>
+          <span class="favorite-badge" data-favorites-badge hidden>0</span>
+        </a>
         <button class="icon-button cart-icon" type="button" data-cart-toggle aria-label="Открыть корзину" title="Корзина">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h2.2l2.1 10.2h9.5l2.1-7.1H6.4"/><circle cx="9" cy="19" r="1.1"/><circle cx="17" cy="19" r="1.1"/></svg>
           <span class="cart-badge">0</span>
@@ -53,7 +56,7 @@
       <div class="hero-copy">
         <h1 id="hero-title">Стиль для<br>современных мужчин</h1>
         <p>Премиальное качество. Безупречный крой.<br>Уверенность в каждой детали.</p>
-        <a class="primary-button" href="#catalog">Смотреть каталог <span aria-hidden="true">→</span></a>
+        <a class="primary-button" href="/catalog">Смотреть каталог <span aria-hidden="true">→</span></a>
       </div>
       <div class="hero-media">
         <img src="/assets/hero-fashion.svg" alt="Fashion-образ SOTT в бежевых и коричневых оттенках">
@@ -65,14 +68,14 @@
       <div class="container">
         <div class="section-heading">
           <h2 id="categories-title">Категории</h2>
-          <a class="section-link" href="/?all=1#catalog">Смотреть все <span>→</span></a>
+          <a class="section-link" href="/catalog">Смотреть все <span>→</span></a>
         </div>
         <div class="category-grid">
-          <a class="category-card" href="/?category=shirts#catalog"><div class="category-image"><img src="/assets/categories/shirts.svg" alt="Рубашки"></div><div class="category-meta"><div><h3>Рубашки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/?category=trousers#catalog"><div class="category-image"><img src="/assets/categories/trousers.svg" alt="Брюки"></div><div class="category-meta"><div><h3>Брюки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/?category=outerwear#catalog"><div class="category-image"><img src="/assets/categories/outerwear.svg" alt="Верхняя одежда"></div><div class="category-meta"><div><h3>Верхняя одежда</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/?category=shoes#catalog"><div class="category-image"><img src="/assets/categories/shoes.svg" alt="Обувь"></div><div class="category-meta"><div><h3>Обувь</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/?category=accessories#catalog"><div class="category-image"><img src="/assets/categories/accessories.svg" alt="Аксессуары"></div><div class="category-meta"><div><h3>Аксессуары</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=shirts"><div class="category-image"><img src="/assets/categories/shirts.svg" alt="Рубашки"></div><div class="category-meta"><div><h3>Рубашки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=trousers"><div class="category-image"><img src="/assets/categories/trousers.svg" alt="Брюки"></div><div class="category-meta"><div><h3>Брюки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=outerwear"><div class="category-image"><img src="/assets/categories/outerwear.svg" alt="Верхняя одежда"></div><div class="category-meta"><div><h3>Верхняя одежда</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=shoes"><div class="category-image"><img src="/assets/categories/shoes.svg" alt="Обувь"></div><div class="category-meta"><div><h3>Обувь</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=accessories"><div class="category-image"><img src="/assets/categories/accessories.svg" alt="Аксессуары"></div><div class="category-meta"><div><h3>Аксессуары</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
         </div>
       </div>
     </section>
@@ -81,7 +84,7 @@
       <div class="container">
         <div class="section-heading">
           <h2 id="catalog-title">Популярные товары</h2>
-          <a class="section-link" href="#catalog">Смотреть все <span>→</span></a>
+          <a class="section-link" href="/catalog">Смотреть все <span>→</span></a>
         </div>
         <div class="product-grid" data-product-grid></div>
       </div>
@@ -91,7 +94,7 @@
       <div class="season-copy">
         <h2 id="season-title">Новинки сезона</h2>
         <p>Откройте для себя свежие образы</p>
-        <a class="primary-button" href="/?new=1#catalog">Смотреть новинки <span>→</span></a>
+        <a class="primary-button" href="/catalog?new=1">Смотреть новинки <span>→</span></a>
       </div>
       <div class="season-media"><img src="/assets/season-fashion.svg" alt="Новый образ SOTT"></div>
     </section>
@@ -118,7 +121,7 @@
         <a class="brand" href="#top" aria-label="SOTT — на главную"><span class="brand-logo-crop"><img src="/assets/sott-logo.jpg" alt="SOTT — ерлер киімі"></span></a>
         <p>Современная мужская одежда<br>в фирменном стиле SOTT.</p>
       </div>
-      <div class="footer-column"><h3>Каталог</h3><a href="#catalog">Популярные товары</a><a href="#new">Новинки</a><a href="#catalog">Все категории</a></div>
+      <div class="footer-column"><h3>Каталог</h3><a href="/catalog?featured=1">Популярные товары</a><a href="/catalog?new=1">Новинки</a><a href="/catalog">Все категории</a></div>
       <div class="footer-column"><h3>Информация</h3><a href="#about">О магазине</a><span>Доставка · условия позже</span><span>Ежедневно 10:00–24:00</span></div>
       <div class="footer-column"><h3>Контакты</h3><a href="https://instagram.com/sott.shym" rel="noreferrer">Instagram · @sott.shym</a><span>Шымкент</span></div>
     </div>

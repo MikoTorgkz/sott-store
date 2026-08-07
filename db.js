@@ -94,6 +94,8 @@ async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_products_published_updated ON products (is_published, updated_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_products_price ON products (price)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_product_variants_available_size ON product_variants (size, product_id) WHERE is_active = TRUE AND stock_quantity > 0');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants (product_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images (product_id, sort_order)');
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_product_images_one_primary ON product_images (product_id) WHERE is_primary');

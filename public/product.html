@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/styles.css">
   <script src="/js/products.js" defer></script>
   <script src="/js/cart.js" defer></script>
+  <script src="/js/favorites.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/js/product-page.js" defer></script>
 </head>
@@ -17,19 +18,20 @@
     <div class="header-inner container">
       <a class="brand" href="/" aria-label="SOTT — на главную"><span class="brand-logo-crop"><img src="/assets/sott-logo.jpg" alt="SOTT — ерлер киімі"></span></a>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Открыть меню"><span></span><span></span><span></span></button>
-      <nav class="main-nav" id="main-nav" aria-label="Основная навигация"><a href="/">Главная</a><a href="/#catalog">Каталог</a><a href="/#new">Новинки</a><a href="/#about">О нас</a><a href="/#contacts">Контакты</a></nav>
-      <div class="header-actions" aria-label="Действия"><button class="icon-button" type="button" aria-label="Поиск — скоро" title="Поиск — скоро"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.3 15.3 4.5 4.5"/></svg></button><button class="icon-button" type="button" aria-label="Избранное — скоро" title="Избранное — скоро"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><button class="icon-button cart-icon" type="button" data-cart-toggle aria-label="Открыть корзину" title="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h2.2l2.1 10.2h9.5l2.1-7.1H6.4"/><circle cx="9" cy="19" r="1.1"/><circle cx="17" cy="19" r="1.1"/></svg><span class="cart-badge" hidden>0</span></button></div>
+      <nav class="main-nav" id="main-nav" aria-label="Основная навигация"><a href="/">Главная</a><a href="/catalog">Каталог</a><a href="/catalog?new=1">Новинки</a><a href="/#about">О нас</a><a href="/#contacts">Контакты</a></nav>
+      <div class="header-actions" aria-label="Действия"><button class="icon-button" type="button" data-search-toggle aria-expanded="false" aria-label="Поиск"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.25"/><path d="m15.3 15.3 4.5 4.5"/></svg></button><a class="icon-button favorite-header" href="/favorites" aria-label="Избранное"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg><span class="favorite-badge" data-favorites-badge hidden>0</span></a><button class="icon-button cart-icon" type="button" data-cart-toggle aria-label="Открыть корзину" title="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h2.2l2.1 10.2h9.5l2.1-7.1H6.4"/><circle cx="9" cy="19" r="1.1"/><circle cx="17" cy="19" r="1.1"/></svg><span class="cart-badge" hidden>0</span></button></div>
     </div>
   </header>
 
   <main class="product-page-main">
-    <div class="container product-breadcrumbs"><a href="/">Главная</a><span>·</span><a href="/#catalog">Каталог</a><span>·</span><span data-breadcrumb-product>Товар</span></div>
+    <div class="container product-breadcrumbs"><a href="/">Главная</a><span>·</span><a href="/catalog">Каталог</a><span>·</span><span data-breadcrumb-product>Товар</span></div>
     <section class="container product-view" data-product-view aria-live="polite">
       <div class="product-gallery">
         <div class="product-main-image"><img data-main-product-image src="" alt=""></div>
         <div class="product-thumbnails" data-product-thumbnails aria-label="Изображения товара"></div>
       </div>
       <div class="product-summary">
+        <button class="product-favorite-button" type="button" data-product-favorite aria-pressed="false" aria-label="Добавить товар в избранное"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg><span>В избранное</span></button>
         <p class="product-category" data-product-category></p>
         <h1 data-product-name></h1>
         <strong class="product-price" data-product-price></strong>
@@ -46,7 +48,7 @@
         <div class="product-description"><h2>О товаре</h2><p data-product-description></p></div>
       </div>
     </section>
-    <section class="container product-not-found" data-product-not-found hidden><h1>Товар не найден</h1><p>Возможно, ссылка устарела или товар был перемещён.</p><a class="primary-button" href="/#catalog">Вернуться в каталог →</a></section>
+    <section class="container product-not-found" data-product-not-found hidden><h1>Товар не найден</h1><p>Возможно, ссылка устарела или товар был перемещён.</p><a class="primary-button" href="/catalog">Вернуться в каталог →</a></section>
   </main>
 
   <div class="modal-backdrop" data-size-modal-backdrop hidden></div>

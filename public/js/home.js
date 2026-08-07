@@ -15,8 +15,13 @@
     try {
       const response = await fetch(`/api/products?${query}`, { headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error('catalog unavailable');
-      const data = await response.json();
-      renderProducts(Array.isArray(data.products) ? data.products : []);
+      let data = await response.json();
+      let products = Array.isArray(data.items) ? data.items : Array.isArray(data.products) ? data.products : [];
+      if (!category && !onlyNew && !showAll && products.length === 0) {
+        const fallback = await fetch('/api/products?limit=6', { headers: { Accept: 'application/json' } });
+        if (fallback.ok) { data = await fallback.json(); products = Array.isArray(data.items) ? data.items : data.products || []; }
+      }
+      renderProducts(products);
       updateHeading(category, onlyNew, showAll);
     } catch (_error) {
       grid.replaceChildren(emptyMessage('Не удалось загрузить товары. Попробуйте обновить страницу.'));
@@ -29,6 +34,7 @@
   }
 
   function createCard(product) {
+    if (window.SottStorefrontCard) return window.SottStorefrontCard.create(product);
     const article = document.createElement('article'); article.className = 'product-card';
     const media = document.createElement('div'); media.className = 'product-image';
     const imageLink = document.createElement('a'); imageLink.className = 'product-image-link'; imageLink.href = `/product/${encodeURIComponent(product.slug)}`; imageLink.setAttribute('aria-label', `Открыть ${product.name}`);

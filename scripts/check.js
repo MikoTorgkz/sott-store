@@ -20,6 +20,8 @@ const requiredFiles = [
   'public/index.html',
   'public/product.html',
   'public/cart.html',
+  'public/catalog.html',
+  'public/favorites.html',
   'public/order.html',
   'public/order-success.html',
   'public/order-not-found.html',
@@ -30,6 +32,10 @@ const requiredFiles = [
   'public/js/products.js',
   'public/js/cart.js',
   'public/js/home.js',
+  'public/js/catalog-page.js',
+  'public/js/favorites.js',
+  'public/js/favorites-page.js',
+  'public/js/storefront-card.js',
   'public/js/product-page.js',
   'public/js/cart-page.js',
   'public/js/order-page.js',
@@ -66,7 +72,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'catalog-seed.js', 'catalog.js', 'product-storage.js', 'product-upload.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js', 'public/js/admin-products.js']) {
+for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'catalog-seed.js', 'catalog.js', 'product-storage.js', 'product-upload.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/catalog-page.js', 'public/js/favorites.js', 'public/js/favorites-page.js', 'public/js/storefront-card.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js', 'public/js/admin-products.js']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) {
     console.error(result.stderr || `Syntax check failed: ${file}`);
@@ -119,7 +125,7 @@ if ((seedData.match(/legacyId:/g) || []).length !== 6) {
   process.exit(1);
 }
 const serverSource = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes("app.get('/cart'") || !serverSource.includes("app.post('/api/orders'") || !serverSource.includes("app.get('/order/:token'") || !serverSource.includes("app.get('/api/products'")) {
+if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes("app.get('/cart'") || !serverSource.includes("app.get('/catalog'") || !serverSource.includes("app.get('/favorites'") || !serverSource.includes("app.post('/api/orders'") || !serverSource.includes("app.get('/order/:token'") || !serverSource.includes("app.get('/api/products'")) {
   console.error('Product, cart or order routes are missing');
   process.exit(1);
 }

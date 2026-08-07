@@ -4,7 +4,7 @@ const { initializeDatabase } = require('./db');
 const { createOrder, getOrderByToken, OrderValidationError } = require('./orders');
 const { getDashboard, listOrders, getAdminOrderById, updateOrderStatus, InventoryError } = require('./admin-orders');
 const {
-  CatalogValidationError, listPublicProducts, getPublicProductBySlug, listCategories,
+  CatalogValidationError, searchPublicProducts, listPublicSizes, getPublicProductBySlug, listCategories,
   listAdminProducts, getAdminProductById, createProduct, updateProduct, setProductPublished,
   addProductImages, setPrimaryImage, deleteProductImage,
 } = require('./catalog');
@@ -60,22 +60,39 @@ app.get('/cart', (_req, res) => {
   res.sendFile(path.join(publicDir, 'cart.html'));
 });
 
+app.get('/catalog', (_req, res) => res.sendFile(path.join(publicDir, 'catalog.html')));
+app.get('/favorites', (_req, res) => res.sendFile(path.join(publicDir, 'favorites.html')));
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await listPublicProducts({
+    const result = await searchPublicProducts({
+      q: String(req.query.q || ''),
       category: String(req.query.category || ''),
+      size: String(req.query.size || ''), minPrice: req.query.minPrice, maxPrice: req.query.maxPrice,
+      inStock: req.query.inStock === '1',
       featured: req.query.featured === '1',
       isNew: req.query.new === '1',
-      limit: req.query.limit,
+      sort: String(req.query.sort || ''), page: req.query.page, limit: req.query.limit, ids: req.query.ids,
     });
-    return res.json({ products });
+    return res.json({ ...result, products: result.items });
   } catch (error) {
+    if (error instanceof CatalogValidationError) return res.status(error.status).json({ error: error.message });
     console.error('SOTT public catalog failed:', safeErrorMessage(error));
     return res.status(503).json({ error: 'Не удалось загрузить каталог' });
+  }
+});
+
+app.get('/api/catalog/filters', async (_req, res) => {
+  try {
+    const [categories, sizes] = await Promise.all([listCategories({ activeOnly: true }), listPublicSizes()]);
+    return res.json({ categories, sizes });
+  } catch (error) {
+    console.error('SOTT catalog filters failed:', safeErrorMessage(error));
+    return res.status(503).json({ error: 'Не удалось загрузить фильтры' });
   }
 });
 

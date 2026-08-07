@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { products: catalogProducts, categories, seedCatalog } = require('../catalog-seed');
-const { CatalogValidationError, slugify, validateProductInput, getPublicProductBySlug, listAdminProducts } = require('../catalog');
+const { CatalogValidationError, slugify, validateProductInput, getPublicProductBySlug, listAdminProducts, searchPublicProducts } = require('../catalog');
 const { validateUploadedImage } = require('../product-upload');
 const { getStorageStatus } = require('../product-storage');
 
@@ -49,5 +49,19 @@ if (originalMount === undefined) delete process.env.RAILWAY_VOLUME_MOUNT_PATH; e
   await listAdminProducts({ search: "%' OR 1=1 --", categoryId: 7, visibility: 'hidden' }, { async query(sql, params) { adminCalls.push({ sql, params }); return { rows: [] }; } });
   assert(adminCalls[0].sql.includes('ILIKE $1') && !adminCalls[0].sql.includes("OR 1=1 --"), 'admin search must be parameterized');
   assert.strictEqual(adminCalls[0].params[0], "%%' OR 1=1 --%");
-  console.log('Catalog logic passed: 7 categories, idempotent seed, validation, public stock state, upload signatures and parameterized admin search verified.');
+
+  const publicCalls = [];
+  const publicDb = { async query(sql, params) {
+    publicCalls.push({ sql, params });
+    if (sql.startsWith('SELECT COUNT')) return { rows: [{ total: 1 }] };
+    return { rows: [{ id: 9, slug: 'test-public', name: 'Test', price: 15000, category_name: 'Рубашки', category_slug: 'shirts', main_image: '/assets/product-placeholder.svg', is_featured: false, is_new: true, in_stock: true }] };
+  } };
+  const publicResult = await searchPublicProducts({ q: "рубашка' OR 1=1 --", category: 'shirts', size: 'L', minPrice: '10000', maxPrice: '25000', inStock: true, isNew: true, sort: 'price_asc', page: '2' }, publicDb);
+  assert.strictEqual(publicResult.items.length, 1);
+  assert(publicCalls[0].sql.includes('ILIKE $2') && !publicCalls[0].sql.includes("рубашка' OR 1=1"), 'public search must be parameterized');
+  assert(publicCalls[1].sql.includes('ORDER BY p.price ASC'), 'public sort must use a whitelisted fragment');
+  assert(publicCalls[0].sql.includes('sv.stock_quantity>0'), 'size filter must require positive stock');
+  await assert.rejects(() => searchPublicProducts({ minPrice: '-1' }, publicDb), /минимальную цену/);
+  await assert.rejects(() => searchPublicProducts({ category: "shirts' OR 1=1" }, publicDb), /категория/);
+  console.log('Catalog logic passed: Stage 6 public filters, parameterized search, stock-aware sizes and whitelisted sort verified.');
 })().catch((error) => { console.error(error); process.exit(1); });
