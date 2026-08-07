@@ -40,3 +40,37 @@ function ensureSearchPanel() {
 document.querySelectorAll('[data-search-toggle]').forEach((button) => button.addEventListener('click', () => {
   const panel = ensureSearchPanel(); const open = !panel.classList.contains('is-open'); panel.classList.toggle('is-open', open); button.setAttribute('aria-expanded', String(open)); if (open) panel.querySelector('input').focus();
 }));
+
+const heroCarousel = document.querySelector('[data-hero-carousel]');
+if (heroCarousel) {
+  const track = heroCarousel.querySelector('[data-hero-track]');
+  const slides = [...track.children];
+  const dots = [...heroCarousel.querySelectorAll('[data-hero-dot]')];
+  let currentSlide = 0;
+  let touchStartX = null;
+
+  function showHeroSlide(index) {
+    currentSlide = (index + slides.length) % slides.length;
+    track.style.transform = `translateX(-${currentSlide * 100}%)`;
+    dots.forEach((dot, dotIndex) => {
+      const active = dotIndex === currentSlide;
+      dot.classList.toggle('active', active);
+      if (active) dot.setAttribute('aria-current', 'true'); else dot.removeAttribute('aria-current');
+    });
+  }
+
+  heroCarousel.querySelector('[data-hero-prev]').addEventListener('click', () => showHeroSlide(currentSlide - 1));
+  heroCarousel.querySelector('[data-hero-next]').addEventListener('click', () => showHeroSlide(currentSlide + 1));
+  dots.forEach((dot) => dot.addEventListener('click', () => showHeroSlide(Number(dot.dataset.heroDot))));
+  heroCarousel.addEventListener('touchstart', (event) => { touchStartX = event.changedTouches[0]?.clientX ?? null; }, { passive: true });
+  heroCarousel.addEventListener('touchend', (event) => {
+    if (touchStartX === null) return;
+    const distance = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+    if (Math.abs(distance) > 45) showHeroSlide(currentSlide + (distance < 0 ? 1 : -1));
+    touchStartX = null;
+  }, { passive: true });
+  heroCarousel.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') showHeroSlide(currentSlide - 1);
+    if (event.key === 'ArrowRight') showHeroSlide(currentSlide + 1);
+  });
+}
