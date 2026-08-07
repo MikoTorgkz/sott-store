@@ -257,20 +257,30 @@ async function addProductImages(productId, urls, pool) {
   const id = parseId(productId);
   if (!id) return null;
   const database = pool || getPool();
-  const exists = await database.query('SELECT id FROM products WHERE id=$1', [id]);
-  if (!exists.rows[0]) return null;
-  const current = await database.query('SELECT COUNT(*)::int AS count FROM product_images WHERE product_id=$1', [id]);
-  const start = Number(current.rows[0].count || 0);
-  if (start + urls.length > 8) throw new CatalogValidationError('Можно загрузить максимум 8 фотографий');
-  for (let index = 0; index < urls.length; index += 1) {
-    await database.query(
-      `INSERT INTO product_images (product_id, image_url, sort_order, is_primary)
-       VALUES ($1,$2,$3,$4)`,
-      [id, urls[index], start + index, start === 0 && index === 0],
-    );
+  const client = await database.connect();
+  try {
+    await client.query('BEGIN');
+    const exists = await client.query('SELECT id FROM products WHERE id=$1 FOR UPDATE', [id]);
+    if (!exists.rows[0]) { await client.query('ROLLBACK'); return null; }
+    const current = await client.query('SELECT COUNT(*)::int AS count FROM product_images WHERE product_id=$1', [id]);
+    const start = Number(current.rows[0].count || 0);
+    if (start + urls.length > 8) throw new CatalogValidationError('Можно загрузить не более 8 фотографий');
+    for (let index = 0; index < urls.length; index += 1) {
+      await client.query(
+        `INSERT INTO product_images (product_id, image_url, sort_order, is_primary)
+         VALUES ($1,$2,$3,$4)`,
+        [id, urls[index], start + index, start === 0 && index === 0],
+      );
+    }
+    await client.query('UPDATE products SET updated_at=NOW() WHERE id=$1', [id]);
+    await client.query('COMMIT');
+    return getAdminProductById(id, database);
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (_error) { /* release below */ }
+    throw error;
+  } finally {
+    client.release();
   }
-  await database.query('UPDATE products SET updated_at=NOW() WHERE id=$1', [id]);
-  return getAdminProductById(id, database);
 }
 
 async function setPrimaryImage(productId, imageId, pool) {

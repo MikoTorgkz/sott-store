@@ -1,8 +1,8 @@
 const assert = require('assert');
 const { products: catalogProducts, categories, seedCatalog } = require('../catalog-seed');
-const { CatalogValidationError, slugify, validateProductInput, getPublicProductBySlug, listAdminProducts, searchPublicProducts } = require('../catalog');
+const { CatalogValidationError, slugify, validateProductInput, getPublicProductBySlug, listAdminProducts, searchPublicProducts, addProductImages } = require('../catalog');
 const { validateUploadedImage } = require('../product-upload');
-const { getStorageStatus } = require('../product-storage');
+const { getStorageStatus, getUploadDirectory } = require('../product-storage');
 
 assert.strictEqual(categories.length, 7, 'Stage 5 requires seven catalog categories');
 assert.strictEqual(catalogProducts.length, 6, 'Seed must contain the original six products');
@@ -12,10 +12,17 @@ const validated = validateProductInput({ name: 'Новый товар', category
 assert.strictEqual(validated.variants[0].stockQuantity, 0);
 assert.throws(() => validateProductInput({ name: 'Bad', categoryId: 1, price: 100, variants: [{ size: 'M', stockQuantity: -1 }] }), CatalogValidationError);
 
-function fakeFile(mimetype, bytes) { return { mimetype, buffer: Buffer.from(bytes) }; }
-assert.strictEqual(validateUploadedImage(fakeFile('image/jpeg', [0xff, 0xd8, 0xff, 0x00])), 'jpg');
-assert.strictEqual(validateUploadedImage(fakeFile('image/png', [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])), 'png');
-assert.throws(() => validateUploadedImage({ mimetype: 'image/png', buffer: Buffer.from('<svg>bad</svg>') }), /не соответствует формату/);
+function fakeFile(mimetype, bytes, originalname) { return { mimetype, buffer: Buffer.from(bytes), originalname }; }
+assert.strictEqual(validateUploadedImage(fakeFile('image/jpeg', [0xff, 0xd8, 0xff, 0x00], 'photo.jpg')), 'jpg');
+assert.strictEqual(validateUploadedImage(fakeFile('image/png', [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a], 'photo.png')), 'png');
+assert.strictEqual(validateUploadedImage(fakeFile('image/webp', [...Buffer.from('RIFF'),0,0,0,0,...Buffer.from('WEBP')], 'photo.webp')), 'webp');
+assert.throws(() => validateUploadedImage(fakeFile('image/png', Buffer.from('<svg>bad</svg>'), 'photo.png')), /не соответствует формату/);
+assert.throws(() => validateUploadedImage(fakeFile('image/png', [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a], 'photo.svg')), /JPEG, PNG и WebP/);
+const originalUploadsDir = process.env.UPLOADS_DIR;
+process.env.UPLOADS_DIR = '/data/sott-test/uploads';
+assert.strictEqual(getStorageStatus().mode, 'persistent', 'UPLOADS_DIR must enable persistent uploads');
+assert.strictEqual(getUploadDirectory(), '/data/sott-test/uploads/products');
+if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR; else process.env.UPLOADS_DIR = originalUploadsDir;
 const originalMount = process.env.RAILWAY_VOLUME_MOUNT_PATH;
 process.env.RAILWAY_VOLUME_MOUNT_PATH = '/data/sott-test';
 assert.strictEqual(getStorageStatus().mode, 'railway-volume', 'Railway Volume must enable persistent production uploads');
@@ -63,5 +70,20 @@ if (originalMount === undefined) delete process.env.RAILWAY_VOLUME_MOUNT_PATH; e
   assert(publicCalls[0].sql.includes('sv.stock_quantity>0'), 'size filter must require positive stock');
   await assert.rejects(() => searchPublicProducts({ minPrice: '-1' }, publicDb), /минимальную цену/);
   await assert.rejects(() => searchPublicProducts({ category: "shirts' OR 1=1" }, publicDb), /категория/);
+
+  const imageTransactionCalls = [];
+  let inserts = 0;
+  const imageClient = {
+    async query(sql) {
+      imageTransactionCalls.push(sql);
+      if (sql.includes('SELECT id FROM products')) return { rows: [{ id: 1 }] };
+      if (sql.includes('SELECT COUNT')) return { rows: [{ count: 0 }] };
+      if (sql.includes('INSERT INTO product_images') && ++inserts === 2) throw new Error('simulated insert failure');
+      return { rows: [] };
+    },
+    release() {},
+  };
+  await assert.rejects(() => addProductImages(1, ['/uploads/products/a.jpg', '/uploads/products/b.jpg'], { async connect() { return imageClient; } }), /simulated insert failure/);
+  assert(imageTransactionCalls.includes('BEGIN') && imageTransactionCalls.includes('ROLLBACK') && !imageTransactionCalls.includes('COMMIT'), 'failed image batch must roll back as one transaction');
   console.log('Catalog logic passed: Stage 6 public filters, parameterized search, stock-aware sizes and whitelisted sort verified.');
 })().catch((error) => { console.error(error); process.exit(1); });

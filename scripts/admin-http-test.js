@@ -5,6 +5,9 @@ process.env.ADMIN_USERNAME = 'http-test-owner';
 process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync('http-test-password', 4);
 process.env.SESSION_SECRET = 'http-test-session-secret-that-is-longer-than-thirty-two-characters';
 delete process.env.NODE_ENV;
+delete process.env.UPLOADS_DIR;
+delete process.env.RAILWAY_VOLUME_MOUNT_PATH;
+delete process.env.PRODUCT_STORAGE;
 
 const { app } = require('../server');
 
@@ -27,6 +30,8 @@ async function run() {
     assert.equal(response.status, 302, 'product admin page must require a session');
     response = await fetch(`${base}/api/admin/products`);
     assert.equal(response.status, 401, 'product admin API must require a session');
+    response = await fetch(`${base}/api/admin/products/1/images`, { method: 'POST' });
+    assert.equal(response.status, 401, 'product image upload must require a session before multipart parsing');
 
     response = await fetch(`${base}/admin/login`);
     assert.equal(response.status, 200);
@@ -79,6 +84,16 @@ async function run() {
     response = await fetch(`${base}/admin/products`, { headers: { Cookie: cookie } });
     assert.equal(response.status, 200);
     assert.match(await response.text(), /data-nav="products"/);
+    response = await fetch(`${base}/admin/products/new`, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200, 'new product page must open for an authenticated admin');
+    assert.match(response.headers.get('content-security-policy') || '', /img-src 'self' blob:/, 'admin CSP must allow blob previews for selected local images');
+
+    response = await fetch(`${base}/api/admin/products/1/images`, {
+      method: 'POST',
+      headers: { Cookie: cookie, Origin: base, 'X-CSRF-Token': login.csrfToken },
+    });
+    assert.equal(response.status, 503, 'configured admin without persistent storage must get a clear upload error');
+    assert.equal((await response.json()).error, 'Хранилище фотографий не настроено');
 
     response = await fetch(`${base}/api/admin/products`, {
       method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json', 'X-CSRF-Token': login.csrfToken }, body: '{}',

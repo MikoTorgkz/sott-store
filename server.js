@@ -36,9 +36,11 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '20kb' }));
 const persistentUploadDir = getUploadDirectory();
-if (persistentUploadDir && getStorageStatus().mode === 'railway-volume') {
+if (persistentUploadDir) {
   app.use('/uploads/products', express.static(persistentUploadDir, {
     fallthrough: false,
+    dotfiles: 'deny',
+    index: false,
     maxAge: '7d',
     setHeaders(res) { res.setHeader('X-Content-Type-Options', 'nosniff'); },
   }));
@@ -124,7 +126,7 @@ app.use(['/admin', '/admin/*splat'], (_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
   next();
 });
 
@@ -267,7 +269,7 @@ app.patch('/api/admin/products/:id/published', requireAdminApi, requireCsrf, asy
   }
 });
 
-app.post('/api/admin/products/:id/images', requireAdminApi, requireCsrf, uploadProductImages, async (req, res) => {
+app.post('/api/admin/products/:id/images', requireAdminApi, requireCsrf, requireProductStorage, uploadProductImages, async (req, res) => {
   const id = parseAdminOrderId(req.params.id);
   if (!id) return res.status(404).json({ error: 'Товар не найден' });
   const files = Array.isArray(req.files) ? req.files : [];
@@ -278,8 +280,6 @@ app.post('/api/admin/products/:id/images', requireAdminApi, requireCsrf, uploadP
   } catch (error) {
     return res.status(400).json({ error: error.message || 'Не удалось загрузить фотографию' });
   }
-  const storage = getStorageStatus();
-  if (!storage.configured) return res.status(503).json({ error: storage.message });
   const urls = [];
   try {
     for (let index = 0; index < files.length; index += 1) urls.push(await saveImage(files[index].buffer, formats[index]));
@@ -409,7 +409,7 @@ app.get('/order-success', async (req, res) => {
 
 app.use((error, _req, res, _next) => {
   if (error && (error.code === 'LIMIT_FILE_SIZE' || error.code === 'LIMIT_FILE_COUNT' || error.code === 'LIMIT_UNEXPECTED_FILE')) {
-    return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Фотография слишком большая' : 'Можно загрузить максимум 8 фотографий' });
+    return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Файл слишком большой' : 'Можно загрузить не более 8 фотографий' });
   }
   if (error && error.code === 'INVALID_IMAGE_UPLOAD') return res.status(400).json({ error: error.message });
   if (error && (error.type === 'entity.too.large' || error.status === 413)) {
@@ -453,9 +453,15 @@ function safeErrorMessage(error) {
 
 function handleCatalogError(error, res, fallback) {
   if (error instanceof CatalogValidationError) return res.status(error.status).json({ error: error.message });
-  if (error && error.code === 'STORAGE_NOT_CONFIGURED') return res.status(503).json({ error: 'Хранилище изображений ещё не настроено' });
+  if (error && error.code === 'STORAGE_NOT_CONFIGURED') return res.status(503).json({ error: 'Хранилище фотографий не настроено' });
   console.error('SOTT catalog mutation failed:', safeErrorMessage(error));
   return res.status(500).json({ error: fallback });
+}
+
+function requireProductStorage(_req, res, next) {
+  const storage = getStorageStatus();
+  if (!storage.configured) return res.status(503).json({ error: 'Хранилище фотографий не настроено' });
+  return next();
 }
 
 function parseAdminOrderId(value) {
