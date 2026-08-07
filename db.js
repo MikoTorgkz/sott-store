@@ -40,6 +40,9 @@ async function initializeDatabase() {
       image_path TEXT NOT NULL
     )
   `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)');
   return true;
 }
 

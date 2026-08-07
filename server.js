@@ -2,10 +2,28 @@ const express = require('express');
 const path = require('path');
 const { initializeDatabase } = require('./db');
 const { createOrder, getOrderByToken, OrderValidationError } = require('./orders');
+const { getDashboard, listOrders, getAdminOrderById, updateOrderStatus } = require('./admin-orders');
+const {
+  checkLoginRateLimit,
+  clearLoginFailures,
+  clearSessionCookie,
+  createSession,
+  destroySession,
+  isAdminConfigured,
+  isSameOrigin,
+  readSession,
+  recordLoginFailure,
+  requireAdminApi,
+  requireAdminPage,
+  requireCsrf,
+  setSessionCookie,
+  verifyCredentials,
+} = require('./admin-auth');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const publicDir = path.join(__dirname, 'public');
+const adminDir = path.join(__dirname, 'admin');
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -29,6 +47,113 @@ app.get('/cart', (_req, res) => {
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.use(['/admin', '/admin/*splat'], (_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  next();
+});
+
+app.get('/admin/login', (req, res) => {
+  if (readSession(req)) return res.redirect(302, '/admin');
+  return res.sendFile(path.join(adminDir, 'login.html'));
+});
+
+app.post('/api/admin/login', async (req, res) => {
+  if (!isAdminConfigured()) return res.status(503).json({ error: 'Админ-панель временно недоступна' });
+  if (!isSameOrigin(req)) return res.status(403).json({ error: 'Запрос отклонён' });
+  const limit = checkLoginRateLimit(req.ip);
+  if (!limit.allowed) {
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))));
+    return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже' });
+  }
+  const username = req.body && req.body.username;
+  const password = req.body && req.body.password;
+  if (!(await verifyCredentials(username, password))) {
+    recordLoginFailure(req.ip);
+    return res.status(401).json({ error: 'Неверный логин или пароль' });
+  }
+  clearLoginFailures(req.ip);
+  const session = createSession();
+  setSessionCookie(res, session.value);
+  return res.json({ ok: true, csrfToken: session.payload.csrf });
+});
+
+app.get('/api/admin/session', requireAdminApi, (req, res) => {
+  res.json({ authenticated: true, csrfToken: req.adminSession.csrf });
+});
+
+app.post('/api/admin/logout', requireAdminApi, requireCsrf, (req, res) => {
+  destroySession(req);
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/dashboard', requireAdminApi, async (_req, res) => {
+  try {
+    return res.json(await getDashboard());
+  } catch (error) {
+    console.error('SOTT admin dashboard failed:', safeErrorMessage(error));
+    return res.status(503).json({ error: 'Не удалось загрузить заказы' });
+  }
+});
+
+app.get('/api/admin/orders', requireAdminApi, async (req, res) => {
+  try {
+    return res.json(await listOrders({
+      status: String(req.query.status || ''),
+      search: String(req.query.q || ''),
+      page: req.query.page,
+      sort: String(req.query.sort || ''),
+    }));
+  } catch (error) {
+    console.error('SOTT admin orders failed:', safeErrorMessage(error));
+    return res.status(503).json({ error: 'Не удалось загрузить заказы' });
+  }
+});
+
+app.get('/api/admin/orders/:id', requireAdminApi, async (req, res) => {
+  const id = parseAdminOrderId(req.params.id);
+  if (!id) return res.status(404).json({ error: 'Заказ не найден' });
+  try {
+    const order = await getAdminOrderById(id);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    return res.json(order);
+  } catch (error) {
+    console.error('SOTT admin order failed:', safeErrorMessage(error));
+    return res.status(503).json({ error: 'Не удалось загрузить заказ' });
+  }
+});
+
+app.patch('/api/admin/orders/:id/status', requireAdminApi, requireCsrf, async (req, res) => {
+  const id = parseAdminOrderId(req.params.id);
+  if (!id) return res.status(404).json({ error: 'Заказ не найден' });
+  const status = req.body && req.body.status;
+  try {
+    const updated = await updateOrderStatus(id, status);
+    if (updated && updated.invalidStatus) return res.status(400).json({ error: 'Недопустимый статус заказа' });
+    if (!updated) return res.status(404).json({ error: 'Заказ не найден' });
+    return res.json({ id: Number(updated.id), status: updated.status });
+  } catch (error) {
+    console.error('SOTT admin status update failed:', safeErrorMessage(error));
+    return res.status(503).json({ error: 'Не удалось изменить статус' });
+  }
+});
+
+app.get('/admin', requireAdminPage, (_req, res) => {
+  res.sendFile(path.join(adminDir, 'index.html'));
+});
+
+app.get('/admin/orders', requireAdminPage, (_req, res) => {
+  res.sendFile(path.join(adminDir, 'index.html'));
+});
+
+app.get('/admin/orders/:id', requireAdminPage, (req, res) => {
+  if (!parseAdminOrderId(req.params.id)) return res.status(404).sendFile(path.join(adminDir, 'not-found.html'));
+  return res.sendFile(path.join(adminDir, 'index.html'));
 });
 
 app.post('/api/orders', async (req, res) => {
@@ -127,6 +252,12 @@ function isValidAdminWhatsApp(value) {
 
 function safeErrorMessage(error) {
   return error && error.code ? `code=${error.code}` : 'unexpected server error';
+}
+
+function parseAdminOrderId(value) {
+  if (typeof value !== 'string' || !/^\d{1,18}$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
 async function startServer() {

@@ -7,7 +7,12 @@ const requiredFiles = [
   'server.js',
   'db.js',
   'orders.js',
+  'admin-auth.js',
+  'admin-orders.js',
   '.env.example',
+  'admin/login.html',
+  'admin/index.html',
+  'admin/not-found.html',
   'public/index.html',
   'public/product.html',
   'public/cart.html',
@@ -16,6 +21,7 @@ const requiredFiles = [
   'public/order-not-found.html',
   'public/order-unavailable.html',
   'public/styles.css',
+  'public/admin.css',
   'public/app.js',
   'public/js/products.js',
   'public/js/cart.js',
@@ -24,6 +30,8 @@ const requiredFiles = [
   'public/js/cart-page.js',
   'public/js/order-page.js',
   'public/js/order-success.js',
+  'public/js/admin-login.js',
+  'public/js/admin.js',
   'public/assets/sott-logo.jpg',
   'public/assets/hero-fashion.svg',
   'public/assets/season-fashion.svg',
@@ -52,7 +60,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-for (const file of ['server.js', 'db.js', 'orders.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js']) {
+for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) {
     console.error(result.stderr || `Syntax check failed: ${file}`);
@@ -73,6 +81,15 @@ if (orderLogic.status !== 0) {
   process.exit(orderLogic.status || 1);
 }
 process.stdout.write(orderLogic.stdout);
+
+for (const testFile of ['scripts/admin-logic-test.js', 'scripts/admin-http-test.js']) {
+  const adminCheck = spawnSync(process.execPath, [path.join(root, testFile)], { encoding: 'utf8' });
+  if (adminCheck.status !== 0) {
+    console.error(adminCheck.stderr || adminCheck.stdout || `Admin check failed: ${testFile}`);
+    process.exit(adminCheck.status || 1);
+  }
+  process.stdout.write(adminCheck.stdout);
+}
 
 const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public/styles.css'), 'utf8');
@@ -102,6 +119,15 @@ if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes
 }
 if (!serverSource.includes("express.json({ limit: '20kb' })")) {
   console.error('Order API JSON body limit is missing');
+  process.exit(1);
+}
+if (!serverSource.includes("app.get('/admin'") || !serverSource.includes("app.patch('/api/admin/orders/:id/status'")) {
+  console.error('Protected admin routes are missing');
+  process.exit(1);
+}
+const adminCss = fs.readFileSync(path.join(root, 'public/admin.css'), 'utf8');
+if (!adminCss.includes('@media (max-width: 760px)') || !adminCss.includes('overflow-x: hidden')) {
+  console.error('Admin responsive safeguards are missing');
   process.exit(1);
 }
 const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
