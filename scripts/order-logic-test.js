@@ -9,6 +9,7 @@ const validBody = {
   name: 'Меирбек', city: 'Шымкент', whatsapp: '8 (700) 123-45-67',
   items: [{ productId: '1', size: 'M', quantity: 2, price: 1, total: 1 }],
 };
+const requestId = 'stage7-request-key-1234567890';
 
 assert.strictEqual(normalizeWhatsApp('87001234567'), '+77001234567');
 assert.strictEqual(normalizeWhatsApp('+7 700 123-45-67'), '+77001234567');
@@ -17,6 +18,7 @@ expectValidation({ ...validBody, name: '' }, 'Введите имя');
 expectValidation({ ...validBody, city: '' }, 'Введите город');
 expectValidation({ ...validBody, whatsapp: '123' }, 'Укажите корректный WhatsApp');
 expectValidation({ ...validBody, items: [] }, 'Корзина пуста');
+expectValidation({ ...validBody, requestId: '../bad' }, 'Некорректный идентификатор запроса');
 for (const quantity of [0, -1, 1.5, 11, '2']) expectValidation({ ...validBody, items: [{ productId: '1', size: 'M', quantity }] }, 'Некорректное количество товара');
 
 function createMockPool(options = {}) {
@@ -48,6 +50,10 @@ function createMockPool(options = {}) {
   assert.strictEqual(itemInsert.params[5], 15900, 'Snapshot price must come from database');
   assert.strictEqual(itemInsert.params[6], 31800, 'Line total must be server-calculated');
   assert(success.queries.some((q) => q.text === 'COMMIT'));
+  const keyed = createMockPool();
+  await createOrder({ ...validBody, requestId }, keyed.pool);
+  const keyedInsert = keyed.queries.find((q) => q.text.includes('INSERT INTO orders'));
+  assert.strictEqual(keyedInsert.params[6], requestId, 'Idempotency key must be persisted server-side');
 
   await assert.rejects(createOrder(validBody, createMockPool({ missing: true }).pool), /Один из товаров не найден/);
   await assert.rejects(createOrder(validBody, createMockPool({ badSize: true }).pool), /Выбранный размер недоступен/);
@@ -63,5 +69,5 @@ function createMockPool(options = {}) {
   assert.strictEqual(await getOrderByToken(token, lookupPool), null);
   assert.deepStrictEqual(lookupParams, [token]);
   assert.strictEqual(await getOrderByToken('invalid-token', lookupPool), null);
-  console.log('Order logic passed: DB price/stock/size validation, browser-price rejection, snapshots, parameterized lookup and rollback verified.');
+  console.log('Order logic passed: DB price/stock/size validation, browser-price rejection, snapshots, idempotency key persistence, parameterized lookup and rollback verified.');
 })().catch((error) => { console.error(error); process.exit(1); });
