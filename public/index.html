@@ -52,16 +52,30 @@
   </header>
 
   <main id="top">
-    <section class="hero container" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <h1 id="hero-title">Стиль для<br>современных мужчин</h1>
-        <p>Премиальное качество. Безупречный крой.<br>Уверенность в каждой детали.</p>
-        <a class="primary-button" href="/catalog">Смотреть каталог <span aria-hidden="true">→</span></a>
+    <section class="hero-carousel container" data-hero-carousel aria-label="Коллекции SOTT">
+      <div class="hero-track" data-hero-track>
+        <article class="hero hero-slide" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <h1 id="hero-title">Стиль для<br>современных мужчин</h1>
+            <p>Премиальное качество. Безупречный крой.<br>Уверенность в каждой детали.</p>
+            <a class="primary-button" href="/catalog">Смотреть каталог <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="hero-media"><img src="/assets/hero-fashion.svg" alt="Fashion-образ SOTT в бежевых и коричневых оттенках"></div>
+        </article>
+        <article class="hero hero-slide" id="new" aria-labelledby="season-title">
+          <div class="hero-copy">
+            <h2 id="season-title">Новинки<br>сезона</h2>
+            <p>Откройте для себя свежие образы SOTT.</p>
+            <a class="primary-button" href="/catalog?new=1">Смотреть новинки <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="hero-media"><img src="/assets/season-fashion.svg" alt="Новый образ SOTT"></div>
+        </article>
       </div>
-      <div class="hero-media">
-        <img src="/assets/hero-fashion.svg" alt="Fashion-образ SOTT в бежевых и коричневых оттенках">
+      <div class="hero-slider-controls">
+        <button type="button" class="hero-arrow hero-prev" data-hero-prev aria-label="Предыдущий слайд">←</button>
+        <div class="slider-dots" aria-label="Выбор слайда"><button type="button" class="active" data-hero-dot="0" aria-label="Стиль для современных мужчин" aria-current="true"></button><button type="button" data-hero-dot="1" aria-label="Новинки сезона"></button></div>
+        <button type="button" class="hero-arrow hero-next" data-hero-next aria-label="Следующий слайд">→</button>
       </div>
-      <div class="slider-dots" aria-label="Слайд 1 из 3"><span class="active"></span><span></span><span></span></div>
     </section>
 
     <section class="section categories" aria-labelledby="categories-title">
@@ -88,15 +102,6 @@
         </div>
         <div class="product-grid" data-product-grid></div>
       </div>
-    </section>
-
-    <section class="season container" id="new" aria-labelledby="season-title">
-      <div class="season-copy">
-        <h2 id="season-title">Новинки сезона</h2>
-        <p>Откройте для себя свежие образы</p>
-        <a class="primary-button" href="/catalog?new=1">Смотреть новинки <span>→</span></a>
-      </div>
-      <div class="season-media"><img src="/assets/season-fashion.svg" alt="Новый образ SOTT"></div>
     </section>
 
     <section class="about" id="about" aria-labelledby="about-title">
