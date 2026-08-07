@@ -15,6 +15,14 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
+app.get('/product/:slug', (_req, res) => {
+  res.sendFile(path.join(publicDir, 'product.html'));
+});
+
+app.get('/cart', (_req, res) => {
+  res.sendFile(path.join(publicDir, 'cart.html'));
+});
+
 app.use((_req, res) => {
   res.status(404).send('Страница не найдена');
 });
