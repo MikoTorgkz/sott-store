@@ -1,10 +1,11 @@
 const express = require('express');
 const path = require('path');
-const { initializeDatabase } = require('./db');
+const fs = require('fs/promises');
+const { getPool, initializeDatabase } = require('./db');
 const { createOrder, getOrderByToken, OrderValidationError } = require('./orders');
 const { getDashboard, listOrders, getAdminOrderById, updateOrderStatus, InventoryError } = require('./admin-orders');
 const {
-  CatalogValidationError, searchPublicProducts, listPublicSizes, getPublicProductBySlug, listCategories,
+  CatalogValidationError, searchPublicProducts, listPublicSizes, listPublicProductSlugs, getPublicProductBySlug, listCategories,
   listAdminProducts, getAdminProductById, createProduct, updateProduct, setProductPublished,
   addProductImages, setPrimaryImage, deleteProductImage,
 } = require('./catalog');
@@ -35,6 +36,14 @@ const adminDir = path.join(__dirname, 'admin');
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '20kb' }));
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'");
+  next();
+});
 const persistentUploadDir = getUploadDirectory();
 if (persistentUploadDir) {
   app.use('/uploads/products', express.static(persistentUploadDir, {
@@ -45,8 +54,53 @@ if (persistentUploadDir) {
     setHeaders(res) { res.setHeader('X-Content-Type-Options', 'nosniff'); },
   }));
 }
+app.get('/', async (req, res, next) => {
+  try {
+    return res.send(await renderHtml('index.html', publicHeadMeta(req, {
+      title: 'SOTT — мужская одежда',
+      description: 'Мужская одежда SOTT: рубашки, брюки, верхняя одежда, обувь и аксессуары.',
+      canonicalPath: '/',
+      image: '/assets/sott-logo.jpg',
+    })));
+  } catch (error) { return next(error); }
+});
+
+app.get('/product/:slug', async (req, res, next) => {
+  try {
+    const product = await getPublicProductBySlug(req.params.slug);
+    if (!product) return res.status(404).sendFile(path.join(publicDir, 'not-found.html'));
+    const description = plainMetaText(product.shortDescription || product.description || product.name, 180);
+    const image = product.images && product.images[0] ? product.images[0] : '/assets/product-placeholder.svg';
+    const meta = publicHeadMeta(req, {
+      title: `${plainMetaText(product.name, 90)} — SOTT`, description,
+      canonicalPath: `/product/${encodeURIComponent(product.slug)}`, image,
+    });
+    const structured = `<script type="application/ld+json">${safeJsonLd({ '@context': 'https://schema.org', '@type': 'Product', name: product.name, image: [absoluteUrl(req, image)], description, offers: { '@type': 'Offer', priceCurrency: 'KZT', price: product.price, availability: product.sizes.some((size) => size.available) ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: absoluteUrl(req, `/product/${encodeURIComponent(product.slug)}`) } })}</script>`;
+    return res.send(await renderHtml('product.html', `${meta}\n${structured}`));
+  } catch (error) {
+    console.error('SOTT product page failed:', safeErrorMessage(error));
+    if (error && error.code === 'DB_NOT_CONFIGURED') return res.status(503).sendFile(path.join(publicDir, 'error.html'));
+    return next(error);
+  }
+});
+
+app.get('/cart', (_req, res) => {
+  res.sendFile(path.join(publicDir, 'cart.html'));
+});
+
+app.get('/catalog', async (req, res, next) => {
+  try {
+    return res.send(await renderHtml('catalog.html', publicHeadMeta(req, {
+      title: 'Мужская одежда SOTT — каталог',
+      description: 'Каталог мужской одежды SOTT: рубашки, брюки, верхняя одежда, обувь и аксессуары.',
+      canonicalPath: '/catalog', image: '/assets/sott-logo.jpg',
+    })));
+  } catch (error) { return next(error); }
+});
+app.get('/favorites', (_req, res) => res.sendFile(path.join(publicDir, 'favorites.html')));
+
 app.use(express.static(publicDir, {
-  extensions: ['html'],
+  index: false,
   maxAge: 0,
   etag: true,
   setHeaders(res, filePath) {
@@ -54,23 +108,33 @@ app.use(express.static(publicDir, {
   },
 }));
 
-app.get('/', (_req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
+app.get('/health', async (_req, res) => {
+  try {
+    await getPool().query('SELECT 1');
+    return res.json({ status: 'ok', database: 'ok' });
+  } catch (error) {
+    console.error('SOTT health database check failed:', safeErrorMessage(error));
+    return res.status(503).json({ status: 'degraded', database: 'unavailable' });
+  }
 });
 
-app.get('/product/:slug', (_req, res) => {
-  res.sendFile(path.join(publicDir, 'product.html'));
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /order/\nDisallow: /order-success\nDisallow: /api/\nSitemap: ${absoluteUrl(req, '/sitemap.xml')}\n`);
 });
 
-app.get('/cart', (_req, res) => {
-  res.sendFile(path.join(publicDir, 'cart.html'));
-});
-
-app.get('/catalog', (_req, res) => res.sendFile(path.join(publicDir, 'catalog.html')));
-app.get('/favorites', (_req, res) => res.sendFile(path.join(publicDir, 'favorites.html')));
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const products = await listPublicProductSlugs();
+    const urls = [
+      { path: '/', changed: null }, { path: '/catalog', changed: null },
+      ...products.map((product) => ({ path: `/product/${encodeURIComponent(product.slug)}`, changed: product.updatedAt })),
+    ];
+    const body = urls.map((item) => `<url><loc>${escapeXml(absoluteUrl(req, item.path))}</loc>${item.changed ? `<lastmod>${new Date(item.changed).toISOString()}</lastmod>` : ''}</url>`).join('');
+    return res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>`);
+  } catch (error) {
+    console.error('SOTT sitemap failed:', safeErrorMessage(error));
+    return res.status(503).type('text/plain').send('Sitemap temporarily unavailable');
+  }
 });
 
 app.get('/api/products', async (req, res) => {
@@ -127,6 +191,7 @@ app.use(['/admin', '/admin/*splat'], (_req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   next();
 });
 
@@ -351,12 +416,13 @@ app.get('/admin/products/:id', requireAdminPage, (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   if (!isValidAdminWhatsApp(process.env.ADMIN_WHATSAPP)) {
+    console.error('SOTT checkout unavailable: admin WhatsApp configuration is missing or invalid');
     return res.status(503).json({ error: 'Оформление заказа временно недоступно' });
   }
   try {
     const order = await createOrder(req.body);
     const orderUrl = buildOrderUrl(req, order.public_token);
-    return res.status(201).json({
+    return res.status(order.duplicate ? 200 : 201).json({
       token: order.public_token,
       orderUrl,
       whatsappUrl: buildWhatsAppUrl(process.env.ADMIN_WHATSAPP, order.customer_name, orderUrl),
@@ -386,6 +452,7 @@ app.get('/api/orders/:token', async (req, res) => {
 });
 
 app.get('/order/:token', async (req, res) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   try {
     const order = await getOrderByToken(req.params.token);
     if (!order) return res.status(404).sendFile(path.join(publicDir, 'order-not-found.html'));
@@ -397,6 +464,7 @@ app.get('/order/:token', async (req, res) => {
 });
 
 app.get('/order-success', async (req, res) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   try {
     const order = await getOrderByToken(String(req.query.token || ''));
     if (!order) return res.status(404).sendFile(path.join(publicDir, 'order-not-found.html'));
@@ -419,12 +487,48 @@ app.use((error, _req, res, _next) => {
     return res.status(400).json({ error: 'Некорректные данные запроса' });
   }
   console.error('SOTT request failed:', safeErrorMessage(error));
-  return res.status(500).json({ error: 'Ошибка сервера' });
+  if (_req.path.startsWith('/api/')) return res.status(500).json({ error: 'Ошибка сервера' });
+  return res.status(500).sendFile(path.join(publicDir, 'error.html'));
 });
 
-app.use((_req, res) => {
-  res.status(404).send('Страница не найдена');
+app.use((req, res) => {
+  if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Ресурс не найден' });
+  return res.status(404).sendFile(path.join(publicDir, 'not-found.html'));
 });
+
+async function renderHtml(fileName, headMarkup) {
+  const template = await fs.readFile(path.join(publicDir, fileName), 'utf8');
+  const cleaned = template.replace(/<title>[\s\S]*?<\/title>/i, '').replace(/<meta\s+name=["']description["'][^>]*>/i, '');
+  return cleaned.replace('</head>', `${headMarkup}\n</head>`);
+}
+
+function publicHeadMeta(req, { title, description, canonicalPath, image }) {
+  const canonical = absoluteUrl(req, canonicalPath);
+  const imageUrl = absoluteUrl(req, image);
+  const organization = safeJsonLd({ '@context': 'https://schema.org', '@type': 'Organization', name: 'SOTT', url: absoluteUrl(req, '/'), logo: absoluteUrl(req, '/assets/sott-logo.jpg') });
+  return `<title>${escapeHtmlAttribute(title)}</title>\n<meta name="description" content="${escapeHtmlAttribute(description)}">\n<link rel="canonical" href="${escapeHtmlAttribute(canonical)}">\n<link rel="icon" type="image/jpeg" href="/assets/sott-logo.jpg">\n<meta property="og:type" content="website">\n<meta property="og:title" content="${escapeHtmlAttribute(title)}">\n<meta property="og:description" content="${escapeHtmlAttribute(description)}">\n<meta property="og:image" content="${escapeHtmlAttribute(imageUrl)}">\n<meta property="og:url" content="${escapeHtmlAttribute(canonical)}">\n<script type="application/ld+json">${organization}</script>`;
+}
+
+function plainMetaText(value, limit) {
+  return String(value || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+
+function safeJsonLd(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+function escapeHtmlAttribute(value) {
+  return String(value).replace(/[&"<>]/g, (char) => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[char]));
+}
+
+function escapeXml(value) {
+  return String(value).replace(/[&'"<>]/g, (char) => ({ '&': '&amp;', "'": '&apos;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[char]));
+}
+
+function absoluteUrl(req, relativePath) {
+  if (/^https?:\/\//i.test(String(relativePath))) return String(relativePath);
+  return `${getBaseUrl(req)}${String(relativePath).startsWith('/') ? relativePath : `/${relativePath}`}`;
+}
 
 function getBaseUrl(req) {
   const configured = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');

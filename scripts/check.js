@@ -14,6 +14,7 @@ const requiredFiles = [
   'product-storage.js',
   'product-upload.js',
   'scripts/product-upload-http-test.js',
+  'scripts/production-http-test.js',
   '.env.example',
   'admin/login.html',
   'admin/index.html',
@@ -27,6 +28,8 @@ const requiredFiles = [
   'public/order-success.html',
   'public/order-not-found.html',
   'public/order-unavailable.html',
+  'public/not-found.html',
+  'public/error.html',
   'public/styles.css',
   'public/admin.css',
   'public/app.js',
@@ -95,7 +98,7 @@ if (orderLogic.status !== 0) {
 }
 process.stdout.write(orderLogic.stdout);
 
-for (const testFile of ['scripts/catalog-logic-test.js', 'scripts/admin-logic-test.js', 'scripts/admin-http-test.js', 'scripts/product-upload-http-test.js']) {
+for (const testFile of ['scripts/catalog-logic-test.js', 'scripts/admin-logic-test.js', 'scripts/admin-http-test.js', 'scripts/product-upload-http-test.js', 'scripts/production-http-test.js']) {
   const adminCheck = spawnSync(process.execPath, [path.join(root, testFile)], { encoding: 'utf8' });
   if (adminCheck.status !== 0) {
     console.error(adminCheck.stderr || adminCheck.stdout || `Admin check failed: ${testFile}`);

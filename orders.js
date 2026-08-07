@@ -53,7 +53,14 @@ function validateOrderInput(body = {}) {
   const city = cleanText(body.city, 'Введите город');
   const whatsapp = normalizeWhatsApp(body.whatsapp);
   const items = validateItems(body.items);
-  return { customerName, city, whatsapp, items };
+  const requestId = validateRequestId(body.requestId);
+  return { customerName, city, whatsapp, items, requestId };
+}
+
+function validateRequestId(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(value)) throw new OrderValidationError('Некорректный идентификатор запроса');
+  return value;
 }
 
 async function createOrder(body, pool) {
@@ -66,10 +73,10 @@ async function createOrder(body, pool) {
     const items = await hydrateOrderItems(client, request.items);
     const total = items.reduce((sum, item) => sum + item.lineTotal, 0);
     const inserted = await client.query(
-      `INSERT INTO orders (public_token, customer_name, city, customer_whatsapp, total_amount, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO orders (public_token, customer_name, city, customer_whatsapp, total_amount, status, client_request_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, public_token, customer_name, city, customer_whatsapp, total_amount, status, created_at`,
-      [token, request.customerName, request.city, request.whatsapp, total, 'new'],
+      [token, request.customerName, request.city, request.whatsapp, total, 'new', request.requestId],
     );
     const savedOrder = inserted.rows[0];
     for (const item of items) {
@@ -83,10 +90,20 @@ async function createOrder(body, pool) {
     return { ...savedOrder, items };
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch (_rollbackError) { /* connection will be released */ }
+    if (request.requestId && error && error.code === '23505' && error.constraint === 'idx_orders_client_request_id') {
+      const existing = await getOrderByRequestId(request.requestId, database);
+      if (existing) return { ...existing, public_token: existing.token, duplicate: true };
+    }
     throw error;
   } finally {
     client.release();
   }
+}
+
+async function getOrderByRequestId(requestId, pool) {
+  const database = pool || getPool();
+  const result = await database.query('SELECT public_token FROM orders WHERE client_request_id = $1 LIMIT 1', [requestId]);
+  return result.rows[0] ? getOrderByToken(result.rows[0].public_token, database) : null;
 }
 
 async function hydrateOrderItems(client, requestedItems) {

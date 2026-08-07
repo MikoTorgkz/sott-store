@@ -11,10 +11,13 @@ function closeMenu() {
 
 menuButton?.addEventListener('click', () => {
   const isOpen = menuButton.getAttribute('aria-expanded') === 'true';
+  if (!isOpen) window.dispatchEvent(new CustomEvent('sott:overlay-open', { detail: { type: 'menu' } }));
   menuButton.setAttribute('aria-expanded', String(!isOpen));
   nav.classList.toggle('is-open', !isOpen);
   document.body.classList.toggle('menu-open', !isOpen);
 });
+
+window.addEventListener('sott:overlay-open', (event) => { if (event.detail?.type !== 'menu') closeMenu(); });
 
 navLinks.forEach((link) => link.addEventListener('click', closeMenu));
 
@@ -38,8 +41,15 @@ function ensureSearchPanel() {
 }
 
 document.querySelectorAll('[data-search-toggle]').forEach((button) => button.addEventListener('click', () => {
-  const panel = ensureSearchPanel(); const open = !panel.classList.contains('is-open'); panel.classList.toggle('is-open', open); button.setAttribute('aria-expanded', String(open)); if (open) panel.querySelector('input').focus();
+  const panel = ensureSearchPanel(); const open = !panel.classList.contains('is-open'); if (open) window.dispatchEvent(new CustomEvent('sott:overlay-open', { detail: { type: 'search' } })); panel.classList.toggle('is-open', open); button.setAttribute('aria-expanded', String(open)); if (open) panel.querySelector('input').focus();
 }));
+
+window.addEventListener('sott:overlay-open', (event) => {
+  if (event.detail?.type === 'search') return;
+  const panel = document.querySelector('[data-header-search]');
+  panel?.classList.remove('is-open');
+  document.querySelectorAll('[data-search-toggle]').forEach((button) => button.setAttribute('aria-expanded', 'false'));
+});
 
 const heroCarousel = document.querySelector('[data-hero-carousel]');
 if (heroCarousel) {
