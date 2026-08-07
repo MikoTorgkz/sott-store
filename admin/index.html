@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SOTT — Управление магазином</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body class="admin-page">
+  <button class="admin-mobile-toggle" id="admin-mobile-toggle" type="button" aria-label="Открыть меню" aria-controls="admin-sidebar" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="admin-sidebar-backdrop" id="admin-sidebar-backdrop" hidden></div>
+  <aside class="admin-sidebar" id="admin-sidebar">
+    <a class="admin-brand" href="/admin" aria-label="SOTT — обзор">
+      <img src="/assets/sott-logo.jpg" alt="SOTT">
+      <span>Управление магазином</span>
+    </a>
+    <nav class="admin-nav" aria-label="Административное меню">
+      <a href="/admin" data-nav="overview">Обзор</a>
+      <a href="/admin/orders" data-nav="orders">Заказы</a>
+      <span class="admin-nav-disabled" aria-disabled="true">Товары <small>скоро</small></span>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <a href="/" target="_blank" rel="noopener">Открыть магазин ↗</a>
+      <button id="admin-logout" type="button">Выйти</button>
+    </div>
+  </aside>
+  <main class="admin-main">
+    <header class="admin-topbar">
+      <div>
+        <p class="admin-eyebrow">SOTT</p>
+        <h1 id="admin-page-title">Управление магазином</h1>
+      </div>
+      <span class="admin-secure-label">Закрытая панель</span>
+    </header>
+    <div id="admin-notice" class="admin-notice" role="status" aria-live="polite" hidden></div>
+    <div id="admin-content" aria-live="polite">
+      <div class="admin-loading">Загружаем данные…</div>
+    </div>
+  </main>
+  <script src="/js/products.js"></script>
+  <script src="/js/admin.js" defer></script>
+</body>
+</html>
