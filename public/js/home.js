@@ -2,19 +2,55 @@
   const grid = document.querySelector('[data-product-grid]');
   if (!grid || !window.SottCatalog) return;
 
-  grid.innerHTML = window.SottCatalog.products.map((product) => {
-    const url = `/product/${product.slug}`;
-    return `
-      <article class="product-card">
-        <div class="product-image">
-          <a class="product-image-link" href="${url}" aria-label="Открыть ${product.name}"><img src="${product.images[0]}" alt="${product.name}"></a>
-          <button class="heart-button" type="button" aria-label="${product.name} — избранное будет добавлено позже"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button>
-        </div>
-        <div class="product-details">
-          <h3><a href="${url}">${product.name}</a></h3>
-          <strong>${window.SottCatalog.formatPrice(product.price)}</strong>
-          <a class="add-button choose-size-button" href="${url}">Выбрать размер</a>
-        </div>
-      </article>`;
-  }).join('');
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get('category') || '';
+    const onlyNew = params.get('new') === '1';
+    const query = new URLSearchParams();
+    if (category) query.set('category', category);
+    else if (onlyNew) query.set('new', '1');
+    else query.set('featured', '1');
+    query.set('limit', category || onlyNew ? '24' : '6');
+    try {
+      const response = await fetch(`/api/products?${query}`, { headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error('catalog unavailable');
+      const data = await response.json();
+      renderProducts(Array.isArray(data.products) ? data.products : []);
+      updateHeading(category, onlyNew);
+    } catch (_error) {
+      grid.replaceChildren(emptyMessage('Не удалось загрузить товары. Попробуйте обновить страницу.'));
+    }
+  }
+
+  function renderProducts(products) {
+    if (!products.length) return grid.replaceChildren(emptyMessage('В этой категории пока нет товаров'));
+    grid.replaceChildren(...products.map(createCard));
+  }
+
+  function createCard(product) {
+    const article = document.createElement('article'); article.className = 'product-card';
+    const media = document.createElement('div'); media.className = 'product-image';
+    const imageLink = document.createElement('a'); imageLink.className = 'product-image-link'; imageLink.href = `/product/${encodeURIComponent(product.slug)}`; imageLink.setAttribute('aria-label', `Открыть ${product.name}`);
+    const image = document.createElement('img'); image.src = product.mainImage; image.alt = product.name; imageLink.append(image);
+    const heart = document.createElement('button'); heart.className = 'heart-button'; heart.type = 'button'; heart.setAttribute('aria-label', `${product.name} — избранное будет добавлено позже`);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z'); svg.append(path); heart.append(svg);
+    media.append(imageLink, heart);
+    const details = document.createElement('div'); details.className = 'product-details';
+    const title = document.createElement('h3'); const titleLink = document.createElement('a'); titleLink.href = imageLink.href; titleLink.textContent = product.name; title.append(titleLink);
+    const price = document.createElement('strong'); price.textContent = window.SottCatalog.formatPrice(product.price);
+    const choose = document.createElement('a'); choose.className = 'add-button choose-size-button'; choose.href = imageLink.href; choose.textContent = 'Выбрать размер';
+    details.append(title, price, choose); article.append(media, details); return article;
+  }
+
+  function updateHeading(category, onlyNew) {
+    const heading = document.querySelector('#catalog-title');
+    if (heading) heading.textContent = onlyNew ? 'Новинки' : category ? 'Каталог' : 'Популярные товары';
+  }
+
+  function emptyMessage(text) {
+    const message = document.createElement('p'); message.className = 'catalog-empty-message'; message.textContent = text; return message;
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
 }());

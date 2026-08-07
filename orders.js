@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const catalog = require('./public/js/products.js');
 const { getPool } = require('./db');
 
 const MAX_ITEMS = 50;
@@ -36,24 +35,16 @@ function validateItems(items) {
   if (items.length > MAX_ITEMS) throw new OrderValidationError('Слишком много позиций в корзине');
 
   return items.map((item) => {
-    if (!item || typeof item.productId !== 'string') throw new OrderValidationError('Один из товаров не найден');
-    const product = catalog.getProductById(item.productId);
-    if (!product) throw new OrderValidationError('Один из товаров не найден');
+    if (!item || (typeof item.productId !== 'string' && typeof item.productId !== 'number')) throw new OrderValidationError('Один из товаров не найден');
+    const productId = String(item.productId).trim();
+    if (!productId || productId.length > 64) throw new OrderValidationError('Один из товаров не найден');
     if (typeof item.size !== 'string') throw new OrderValidationError('Выбранный размер недоступен');
-    const size = product.sizes.find((entry) => entry.label === item.size);
-    if (!size || !size.available) throw new OrderValidationError('Выбранный размер недоступен');
+    const size = item.size.trim();
+    if (!size || size.length > 40) throw new OrderValidationError('Выбранный размер недоступен');
     if (typeof item.quantity !== 'number' || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 10) {
       throw new OrderValidationError('Некорректное количество товара');
     }
-    return {
-      productId: product.id,
-      name: product.name,
-      size: size.label,
-      quantity: item.quantity,
-      unitPrice: product.price,
-      lineTotal: product.price * item.quantity,
-      image: product.images[0],
-    };
+    return { productId, size, quantity: item.quantity };
   });
 }
 
@@ -62,25 +53,26 @@ function validateOrderInput(body = {}) {
   const city = cleanText(body.city, 'Введите город');
   const whatsapp = normalizeWhatsApp(body.whatsapp);
   const items = validateItems(body.items);
-  const total = items.reduce((sum, item) => sum + item.lineTotal, 0);
-  return { customerName, city, whatsapp, items, total };
+  return { customerName, city, whatsapp, items };
 }
 
 async function createOrder(body, pool) {
-  const order = validateOrderInput(body);
+  const request = validateOrderInput(body);
   const token = crypto.randomBytes(24).toString('base64url');
   const database = pool || getPool();
   const client = await database.connect();
   try {
     await client.query('BEGIN');
+    const items = await hydrateOrderItems(client, request.items);
+    const total = items.reduce((sum, item) => sum + item.lineTotal, 0);
     const inserted = await client.query(
       `INSERT INTO orders (public_token, customer_name, city, customer_whatsapp, total_amount, status)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, public_token, customer_name, city, customer_whatsapp, total_amount, status, created_at`,
-      [token, order.customerName, order.city, order.whatsapp, order.total, 'new'],
+      [token, request.customerName, request.city, request.whatsapp, total, 'new'],
     );
     const savedOrder = inserted.rows[0];
-    for (const item of order.items) {
+    for (const item of items) {
       await client.query(
         `INSERT INTO order_items (order_id, product_id, product_name, size, quantity, unit_price, line_total, image_path)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -88,13 +80,45 @@ async function createOrder(body, pool) {
       );
     }
     await client.query('COMMIT');
-    return { ...savedOrder, items: order.items };
+    return { ...savedOrder, items };
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch (_rollbackError) { /* connection will be released */ }
     throw error;
   } finally {
     client.release();
   }
+}
+
+async function hydrateOrderItems(client, requestedItems) {
+  const items = [];
+  for (const requested of requestedItems) {
+    const result = await client.query(
+      `SELECT p.id, p.name, p.price, p.is_published,
+              pv.size, pv.stock_quantity, pv.is_active,
+              COALESCE((SELECT pi.image_url FROM product_images pi WHERE pi.product_id=p.id ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC LIMIT 1), '/assets/product-placeholder.svg') AS image_url
+         FROM products p
+         LEFT JOIN product_variants pv ON pv.product_id=p.id AND pv.size=$2
+        WHERE (p.id::text=$1 OR p.legacy_id=$1)
+        LIMIT 1`,
+      [requested.productId, requested.size],
+    );
+    const product = result.rows[0];
+    if (!product || !product.is_published) throw new OrderValidationError('Один из товаров не найден');
+    if (!product.size || !product.is_active) throw new OrderValidationError('Выбранный размер недоступен');
+    const stock = Number(product.stock_quantity);
+    if (stock <= 0) throw new OrderValidationError(`Размер ${requested.size} закончился`);
+    if (requested.quantity > stock) throw new OrderValidationError(`В размере ${requested.size} осталось только ${stock} шт.`);
+    items.push({
+      productId: String(product.id),
+      name: product.name,
+      size: product.size,
+      quantity: requested.quantity,
+      unitPrice: Number(product.price),
+      lineTotal: Number(product.price) * requested.quantity,
+      image: product.image_url,
+    });
+  }
+  return items;
 }
 
 async function getOrderByToken(token, pool) {
@@ -131,4 +155,4 @@ async function getOrderByToken(token, pool) {
   };
 }
 
-module.exports = { ORDER_STATUSES, OrderValidationError, normalizeWhatsApp, validateOrderInput, createOrder, getOrderByToken };
+module.exports = { ORDER_STATUSES, OrderValidationError, normalizeWhatsApp, validateOrderInput, hydrateOrderItems, createOrder, getOrderByToken };

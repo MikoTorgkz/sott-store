@@ -41,7 +41,8 @@
       existing.quantity = Math.min(MAX_QUANTITY, existing.quantity + safeQuantity);
     } else {
       items.push({
-        productId: product.id,
+        productId: String(product.id),
+        slug: product.slug,
         name: product.name,
         price: product.price,
         size,

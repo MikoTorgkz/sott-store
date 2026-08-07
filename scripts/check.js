@@ -9,6 +9,10 @@ const requiredFiles = [
   'orders.js',
   'admin-auth.js',
   'admin-orders.js',
+  'catalog-seed.js',
+  'catalog.js',
+  'product-storage.js',
+  'product-upload.js',
   '.env.example',
   'admin/login.html',
   'admin/index.html',
@@ -32,6 +36,8 @@ const requiredFiles = [
   'public/js/order-success.js',
   'public/js/admin-login.js',
   'public/js/admin.js',
+  'public/js/admin-products.js',
+  'public/assets/product-placeholder.svg',
   'public/assets/sott-logo.jpg',
   'public/assets/hero-fashion.svg',
   'public/assets/season-fashion.svg',
@@ -60,7 +66,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js']) {
+for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'catalog-seed.js', 'catalog.js', 'product-storage.js', 'product-upload.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js', 'public/js/admin-products.js']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) {
     console.error(result.stderr || `Syntax check failed: ${file}`);
@@ -82,7 +88,7 @@ if (orderLogic.status !== 0) {
 }
 process.stdout.write(orderLogic.stdout);
 
-for (const testFile of ['scripts/admin-logic-test.js', 'scripts/admin-http-test.js']) {
+for (const testFile of ['scripts/catalog-logic-test.js', 'scripts/admin-logic-test.js', 'scripts/admin-http-test.js']) {
   const adminCheck = spawnSync(process.execPath, [path.join(root, testFile)], { encoding: 'utf8' });
   if (adminCheck.status !== 0) {
     console.error(adminCheck.stderr || adminCheck.stdout || `Admin check failed: ${testFile}`);
@@ -107,13 +113,13 @@ if (missingAssets.length) {
   console.error(`Missing referenced assets:\n${missingAssets.join('\n')}`);
   process.exit(1);
 }
-const productData = fs.readFileSync(path.join(root, 'public/js/products.js'), 'utf8');
-if ((productData.match(/slug:/g) || []).length !== 6) {
-  console.error('Expected exactly 6 products in the single product data source');
+const seedData = fs.readFileSync(path.join(root, 'catalog-seed.js'), 'utf8');
+if ((seedData.match(/legacyId:/g) || []).length !== 6) {
+  console.error('Expected exactly 6 bootstrap products in the catalog seed');
   process.exit(1);
 }
 const serverSource = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes("app.get('/cart'") || !serverSource.includes("app.post('/api/orders'") || !serverSource.includes("app.get('/order/:token'")) {
+if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes("app.get('/cart'") || !serverSource.includes("app.post('/api/orders'") || !serverSource.includes("app.get('/order/:token'") || !serverSource.includes("app.get('/api/products'")) {
   console.error('Product, cart or order routes are missing');
   process.exit(1);
 }
@@ -123,6 +129,19 @@ if (!serverSource.includes("express.json({ limit: '20kb' })")) {
 }
 if (!serverSource.includes("app.get('/admin'") || !serverSource.includes("app.patch('/api/admin/orders/:id/status'")) {
   console.error('Protected admin routes are missing');
+  process.exit(1);
+}
+if (!serverSource.includes("app.get('/api/admin/products'") || !serverSource.includes("app.post('/api/admin/products'") || !serverSource.includes("uploadProductImages")) {
+  console.error('Admin product CRUD/upload routes are missing');
+  process.exit(1);
+}
+const dbSource = fs.readFileSync(path.join(root, 'db.js'), 'utf8');
+if (!['categories', 'products', 'product_variants', 'product_images'].every((table) => dbSource.includes(`CREATE TABLE IF NOT EXISTS ${table}`))) {
+  console.error('Catalog database tables are incomplete');
+  process.exit(1);
+}
+if (/DROP\s+TABLE/i.test(dbSource)) {
+  console.error('Database initialization must not drop tables');
   process.exit(1);
 }
 const adminCss = fs.readFileSync(path.join(root, 'public/admin.css'), 'utf8');

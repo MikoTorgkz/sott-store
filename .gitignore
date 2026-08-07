@@ -12,3 +12,4 @@ Thumbs.db
 *.tmp
 .idea/
 .vscode/
+public/uploads/
