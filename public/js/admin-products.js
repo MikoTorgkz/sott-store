@@ -1,7 +1,11 @@
 (function () {
   let ctx;
   let categories = [];
-  let storage = { configured: false, message: 'Хранилище изображений ещё не настроено' };
+  let storage = { configured: false, message: 'Хранилище фотографий не настроено' };
+  const MAX_UPLOAD_FILES = 8;
+  const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+  const ALLOWED_UPLOAD_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  const ALLOWED_UPLOAD_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
   async function initialize(context) {
     ctx = context;
@@ -226,6 +230,15 @@
     event.preventDefault();
     message.textContent = '';
     const form = event.currentTarget;
+    const selectedFiles = form.querySelector('input[name="images"]')?.files;
+    if (selectedFiles && selectedFiles.length) {
+      const uploadError = validateSelectedFiles(selectedFiles);
+      if (uploadError) {
+        message.textContent = uploadError;
+        ctx.showNotice(uploadError);
+        return;
+      }
+    }
     const variants = [...form.querySelectorAll('.admin-variant-row')].map((row) => ({
       size: row.querySelector('[name="variantSize"]').value.trim(),
       stockQuantity: Number(row.querySelector('[name="variantStock"]').value),
@@ -242,10 +255,14 @@
       const result = await ctx.api(product ? `/api/admin/products/${product.id}` : '/api/admin/products', { method: product ? 'PATCH' : 'POST', csrf: true, body: data });
       ctx.showNotice(product ? 'Товар сохранён' : 'Товар создан');
       if (!product) {
-        const selectedFiles = form.querySelector('input[name="images"]')?.files;
-        if (selectedFiles && selectedFiles.length && storage.configured) {
-          try { await uploadFiles(result.product.id, selectedFiles); }
-          catch (uploadError) { ctx.showNotice(uploadError.message || 'Товар создан, но фотографии не загрузились'); }
+        if (selectedFiles && selectedFiles.length) {
+          try {
+            await uploadFiles(result.product.id, selectedFiles);
+          } catch (uploadError) {
+            window.history.replaceState(null, '', `/admin/products/${result.product.id}`);
+            ctx.showNotice(`Товар сохранён, но фотографии загрузить не удалось. ${uploadError.message || 'Повторите загрузку'}`);
+            return renderForm(result.product);
+          }
         }
         return window.location.assign(`/admin/products/${result.product.id}`);
       }
@@ -259,24 +276,24 @@
 
   function buildImages(product) {
     const section = panel('Фотографии');
-    const storageInfo = el('p', storage.configured ? 'admin-storage-ready' : 'admin-storage-warning', storage.configured ? 'Хранилище изображений готово.' : (storage.message || 'Хранилище изображений ещё не настроено'));
+    const storageInfo = el('p', storage.configured ? 'admin-storage-ready' : 'admin-storage-warning', storage.configured ? 'Хранилище фотографий готово.' : (storage.message || 'Хранилище фотографий не настроено'));
     const images = el('div', 'admin-product-images');
     images.dataset.existingImages = '';
     (product?.images || []).forEach((item) => images.append(imageCard(product, item)));
     const uploadLabel = el('label', 'admin-upload-field');
     uploadLabel.append(el('span', '', 'Добавить JPEG, PNG или WebP — до 8 МБ, максимум 8 фото'));
     const input = document.createElement('input');
-    input.type = 'file'; input.name = 'images'; input.multiple = true; input.accept = 'image/jpeg,image/png,image/webp'; input.disabled = !storage.configured;
+    input.type = 'file'; input.name = 'images'; input.multiple = true; input.accept = 'image/jpeg,image/png,image/webp';
     uploadLabel.append(input);
     const preview = el('div', 'admin-upload-preview');
     preview.dataset.uploadPreview = '';
     section.append(storageInfo, images, uploadLabel, preview);
     if (product) {
       const upload = el('button', 'admin-secondary-button', 'Загрузить фотографии');
-      upload.type = 'button'; upload.dataset.uploadImages = ''; upload.disabled = !storage.configured;
+      upload.type = 'button'; upload.dataset.uploadImages = '';
       section.append(upload);
     } else {
-      section.append(el('p', 'admin-muted admin-small-note', storage.configured ? 'Фотографии загрузятся сразу после создания товара.' : 'Товар можно создать без фото; загрузка станет доступна после настройки постоянного хранилища.'));
+      section.append(el('p', 'admin-muted admin-small-note', storage.configured ? 'Фотографии загрузятся сразу после создания товара.' : 'Фото можно выбрать сейчас. Если постоянное хранилище не настроено, товар сохранится и фотографии можно будет загрузить повторно после настройки.'));
     }
     return section;
   }
@@ -294,7 +311,15 @@
 
   function bindImageControls(product) {
     const input = ctx.content.querySelector('input[name="images"]');
-    input?.addEventListener('change', () => previewFiles(input.files));
+    input?.addEventListener('change', () => {
+      const error = validateSelectedFiles(input.files);
+      if (error) {
+        previewFiles([]);
+        ctx.showNotice(error);
+        return;
+      }
+      previewFiles(input.files);
+    });
     if (!product) return;
     ctx.content.querySelector('[data-upload-images]')?.addEventListener('click', (event) => uploadImages(product.id, input, event.currentTarget));
     ctx.content.querySelector('[data-existing-images]')?.addEventListener('click', async (event) => {
@@ -314,17 +339,19 @@
   function previewFiles(fileList) {
     const target = ctx.content.querySelector('[data-upload-preview]');
     target.replaceChildren();
-    [...fileList].slice(0, 8).forEach((file) => {
+    [...fileList].slice(0, MAX_UPLOAD_FILES).forEach((file) => {
+      const item = el('figure', 'admin-upload-preview-item');
       const image = document.createElement('img');
       image.src = URL.createObjectURL(file); image.alt = `Предпросмотр ${file.name}`;
       image.addEventListener('load', () => URL.revokeObjectURL(image.src), { once: true });
-      target.append(image);
+      item.append(image, el('figcaption', '', file.name));
+      target.append(item);
     });
   }
 
   async function uploadImages(productId, input, button) {
-    if (!input.files.length) return ctx.showNotice('Выберите фотографии');
-    if (input.files.length > 8) return ctx.showNotice('Можно выбрать максимум 8 фотографий');
+    const validationError = validateSelectedFiles(input.files, true);
+    if (validationError) return ctx.showNotice(validationError);
     button.disabled = true; button.textContent = 'Загружаем…';
     try {
       await uploadFiles(productId, input.files);
@@ -334,11 +361,25 @@
   }
 
   async function uploadFiles(productId, files) {
+    const validationError = validateSelectedFiles(files, true);
+    if (validationError) throw new Error(validationError);
     const body = new FormData(); [...files].forEach((file) => body.append('images', file));
     const response = await fetch(`/api/admin/products/${productId}/images`, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': ctx.csrfToken, Accept: 'application/json' }, body });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || 'Не удалось загрузить фотографии');
     return result;
+  }
+
+  function validateSelectedFiles(fileList, requireFiles = false) {
+    const files = [...(fileList || [])];
+    if (!files.length) return requireFiles ? 'Выберите изображение' : '';
+    if (files.length > MAX_UPLOAD_FILES) return 'Можно загрузить не более 8 фотографий';
+    for (const file of files) {
+      const extension = String(file.name || '').split('.').pop().toLowerCase();
+      if (!ALLOWED_UPLOAD_TYPES.has(file.type) || !ALLOWED_UPLOAD_EXTENSIONS.has(extension)) return 'Поддерживаются JPEG, PNG и WebP';
+      if (file.size > MAX_UPLOAD_BYTES) return 'Файл слишком большой';
+    }
+    return '';
   }
 
   function buildPagination(pagination, state) {
