@@ -6,17 +6,18 @@
     const params = new URLSearchParams(window.location.search);
     const category = params.get('category') || '';
     const onlyNew = params.get('new') === '1';
+    const showAll = params.get('all') === '1';
     const query = new URLSearchParams();
     if (category) query.set('category', category);
     else if (onlyNew) query.set('new', '1');
-    else query.set('featured', '1');
-    query.set('limit', category || onlyNew ? '24' : '6');
+    else if (!showAll) query.set('featured', '1');
+    query.set('limit', category || onlyNew || showAll ? '24' : '6');
     try {
       const response = await fetch(`/api/products?${query}`, { headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error('catalog unavailable');
       const data = await response.json();
       renderProducts(Array.isArray(data.products) ? data.products : []);
-      updateHeading(category, onlyNew);
+      updateHeading(category, onlyNew, showAll);
     } catch (_error) {
       grid.replaceChildren(emptyMessage('Не удалось загрузить товары. Попробуйте обновить страницу.'));
     }
@@ -43,9 +44,9 @@
     details.append(title, price, choose); article.append(media, details); return article;
   }
 
-  function updateHeading(category, onlyNew) {
+  function updateHeading(category, onlyNew, showAll) {
     const heading = document.querySelector('#catalog-title');
-    if (heading) heading.textContent = onlyNew ? 'Новинки' : category ? 'Каталог' : 'Популярные товары';
+    if (heading) heading.textContent = onlyNew ? 'Новинки' : category || showAll ? 'Каталог' : 'Популярные товары';
   }
 
   function emptyMessage(text) {

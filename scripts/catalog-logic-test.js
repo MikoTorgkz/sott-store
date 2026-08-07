@@ -2,6 +2,7 @@ const assert = require('assert');
 const { products: catalogProducts, categories, seedCatalog } = require('../catalog-seed');
 const { CatalogValidationError, slugify, validateProductInput, getPublicProductBySlug, listAdminProducts } = require('../catalog');
 const { validateUploadedImage } = require('../product-upload');
+const { getStorageStatus } = require('../product-storage');
 
 assert.strictEqual(categories.length, 7, 'Stage 5 requires seven catalog categories');
 assert.strictEqual(catalogProducts.length, 6, 'Seed must contain the original six products');
@@ -15,6 +16,10 @@ function fakeFile(mimetype, bytes) { return { mimetype, buffer: Buffer.from(byte
 assert.strictEqual(validateUploadedImage(fakeFile('image/jpeg', [0xff, 0xd8, 0xff, 0x00])), 'jpg');
 assert.strictEqual(validateUploadedImage(fakeFile('image/png', [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])), 'png');
 assert.throws(() => validateUploadedImage({ mimetype: 'image/png', buffer: Buffer.from('<svg>bad</svg>') }), /не соответствует формату/);
+const originalMount = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+process.env.RAILWAY_VOLUME_MOUNT_PATH = '/data/sott-test';
+assert.strictEqual(getStorageStatus().mode, 'railway-volume', 'Railway Volume must enable persistent production uploads');
+if (originalMount === undefined) delete process.env.RAILWAY_VOLUME_MOUNT_PATH; else process.env.RAILWAY_VOLUME_MOUNT_PATH = originalMount;
 
 (async () => {
   const seedCalls = [];

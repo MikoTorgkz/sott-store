@@ -9,7 +9,7 @@ const {
   addProductImages, setPrimaryImage, deleteProductImage,
 } = require('./catalog');
 const { uploadProductImages, validateUploadedImage } = require('./product-upload');
-const { getStorageStatus, saveImage, removeImage } = require('./product-storage');
+const { getStorageStatus, getUploadDirectory, saveImage, removeImage } = require('./product-storage');
 const {
   checkLoginRateLimit,
   clearLoginFailures,
@@ -35,6 +35,14 @@ const adminDir = path.join(__dirname, 'admin');
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '20kb' }));
+const persistentUploadDir = getUploadDirectory();
+if (persistentUploadDir && getStorageStatus().mode === 'railway-volume') {
+  app.use('/uploads/products', express.static(persistentUploadDir, {
+    fallthrough: false,
+    maxAge: '7d',
+    setHeaders(res) { res.setHeader('X-Content-Type-Options', 'nosniff'); },
+  }));
+}
 app.use(express.static(publicDir, {
   extensions: ['html'],
   maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
