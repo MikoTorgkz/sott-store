@@ -95,7 +95,7 @@
     } else {
       list.innerHTML = items.map((item) => `
         <article class="mini-cart-item">
-          <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}">
+          <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy">
           <div class="mini-cart-item-copy">
             <h3>${escapeHtml(item.name)}</h3>
             <p>Размер: ${escapeHtml(item.size)} · ${item.quantity} шт.</p>
@@ -105,6 +105,7 @@
         </article>`).join('');
     }
     total.textContent = window.SottCatalog.formatPrice(getTotal(items));
+    if (typeof list.querySelectorAll === 'function') list.querySelectorAll('img').forEach((image) => image.addEventListener('error', () => { image.src = '/assets/product-placeholder.svg'; }, { once: true }));
   }
 
   function escapeHtml(value) {
@@ -120,6 +121,7 @@
     drawer.setAttribute('aria-hidden', String(!open));
     document.body.classList.toggle('drawer-open', open);
     if (open) {
+      window.dispatchEvent(new CustomEvent('sott:overlay-open', { detail: { type: 'cart' } }));
       renderDrawer();
       drawer.querySelector('[data-cart-close]')?.focus();
     }
@@ -149,6 +151,7 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') setDrawer(false);
     });
+    window.addEventListener('sott:overlay-open', (event) => { if (event.detail?.type !== 'cart') setDrawer(false); });
     updateBadges();
     renderDrawer();
   }
