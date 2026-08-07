@@ -7,7 +7,10 @@
   <meta name="theme-color" content="#d96b1b">
   <title>SOTT — мужская одежда</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/js/products.js" defer></script>
+  <script src="/js/cart.js" defer></script>
   <script src="/app.js" defer></script>
+  <script src="/js/home.js" defer></script>
 </head>
 <body>
   <div class="announcement">Новая коллекция · SOTT · Шымкент</div>
@@ -37,7 +40,7 @@
         <button class="icon-button" type="button" aria-label="Избранное — скоро" title="Избранное — скоро">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg>
         </button>
-        <button class="icon-button cart-icon" type="button" aria-label="Корзина — скоро" title="Корзина — скоро">
+        <button class="icon-button cart-icon" type="button" data-cart-toggle aria-label="Открыть корзину" title="Корзина">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h2.2l2.1 10.2h9.5l2.1-7.1H6.4"/><circle cx="9" cy="19" r="1.1"/><circle cx="17" cy="19" r="1.1"/></svg>
           <span class="cart-badge">0</span>
         </button>
@@ -80,14 +83,7 @@
           <h2 id="catalog-title">Популярные товары</h2>
           <a class="section-link" href="#catalog">Смотреть все <span>→</span></a>
         </div>
-        <div class="product-grid">
-          <article class="product-card"><div class="product-image"><button class="heart-button" type="button" aria-label="Поло из хлопка — избранное скоро"><svg viewBox="0 0 24 24"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><img src="/assets/products/polo.svg" alt="Поло из хлопка"></div><div class="product-details"><h3>Поло из хлопка</h3><strong>15 900 ₸</strong><button class="add-button" type="button">В корзину</button></div></article>
-          <article class="product-card"><div class="product-image"><button class="heart-button" type="button" aria-label="Рубашка классическая — избранное скоро"><svg viewBox="0 0 24 24"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><img src="/assets/products/shirt.svg" alt="Рубашка классическая"></div><div class="product-details"><h3>Рубашка классическая</h3><strong>18 900 ₸</strong><button class="add-button" type="button">В корзину</button></div></article>
-          <article class="product-card"><div class="product-image"><button class="heart-button" type="button" aria-label="Брюки чинос — избранное скоро"><svg viewBox="0 0 24 24"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><img src="/assets/products/chinos.svg" alt="Брюки чинос"></div><div class="product-details"><h3>Брюки чинос</h3><strong>19 900 ₸</strong><button class="add-button" type="button">В корзину</button></div></article>
-          <article class="product-card"><div class="product-image"><button class="heart-button" type="button" aria-label="Куртка-бомбер — избранное скоро"><svg viewBox="0 0 24 24"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><img src="/assets/products/bomber.svg" alt="Куртка-бомбер"></div><div class="product-details"><h3>Куртка-бомбер</h3><strong>32 900 ₸</strong><button class="add-button" type="button">В корзину</button></div></article>
-          <article class="product-card"><div class="product-image"><button class="heart-button" type="button" aria-label="Лоферы кожаные — избранное скоро"><svg viewBox="0 0 24 24"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><img src="/assets/products/loafers.svg" alt="Лоферы кожаные"></div><div class="product-details"><h3>Лоферы кожаные</h3><strong>27 900 ₸</strong><button class="add-button" type="button">В корзину</button></div></article>
-          <article class="product-card"><div class="product-image"><button class="heart-button" type="button" aria-label="Джемпер из шерсти — избранное скоро"><svg viewBox="0 0 24 24"><path d="M20.5 5.7c-1.9-2-5-1.8-6.8.1L12 7.6l-1.7-1.8c-1.8-1.9-4.9-2.1-6.8-.1-1.7 1.9-1.5 4.8.3 6.6L12 20.5l8.2-8.2c1.8-1.8 2-4.7.3-6.6Z"/></svg></button><img src="/assets/products/jumper.svg" alt="Джемпер из шерсти"></div><div class="product-details"><h3>Джемпер из шерсти</h3><strong>21 900 ₸</strong><button class="add-button" type="button">В корзину</button></div></article>
-        </div>
+        <div class="product-grid" data-product-grid></div>
       </div>
     </section>
 
