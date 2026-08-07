@@ -65,6 +65,17 @@ async function listPublicSizes(pool) {
   return result.rows.map((row) => row.size);
 }
 
+async function listPublicProductSlugs(pool) {
+  const database = pool || getPool();
+  const result = await database.query(
+    `SELECT p.slug, p.updated_at
+       FROM products p JOIN categories c ON c.id = p.category_id
+      WHERE p.is_published = TRUE AND c.is_active = TRUE
+      ORDER BY p.updated_at DESC, p.id DESC`,
+  );
+  return result.rows.map((row) => ({ slug: row.slug, updatedAt: row.updated_at }));
+}
+
 function parsePublicPrice(value, label) {
   if (value === undefined || value === null || value === '') return null;
   const number = Number(value);
@@ -436,7 +447,7 @@ function clampPage(value) {
 
 module.exports = {
   PRODUCT_PAGE_SIZE, MAX_PRICE, MAX_STOCK, PLACEHOLDER_IMAGE, CatalogValidationError,
-  listPublicProducts, searchPublicProducts, listPublicSizes, getPublicProductBySlug, listCategories, listAdminProducts, getAdminProductById,
+  listPublicProducts, searchPublicProducts, listPublicSizes, listPublicProductSlugs, getPublicProductBySlug, listCategories, listAdminProducts, getAdminProductById,
   createProduct, updateProduct, setProductPublished, addProductImages, setPrimaryImage, deleteProductImage,
   validateProductInput, slugify,
 };
