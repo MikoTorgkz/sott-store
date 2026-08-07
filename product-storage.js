@@ -3,15 +3,22 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const publicDir = path.join(__dirname, 'public');
-const uploadDir = path.join(publicDir, 'uploads', 'products');
+const localUploadDir = path.join(publicDir, 'uploads', 'products');
+
+function getUploadDirectory() {
+  const railwayMount = String(process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
+  if (railwayMount && path.isAbsolute(railwayMount)) return path.join(railwayMount, 'products');
+  if (String(process.env.PRODUCT_STORAGE || '').trim().toLowerCase() === 'local' && process.env.NODE_ENV !== 'production') return localUploadDir;
+  return null;
+}
 
 function getStorageStatus() {
-  const mode = String(process.env.PRODUCT_STORAGE || '').trim().toLowerCase();
-  const localAllowed = mode === 'local' && process.env.NODE_ENV !== 'production';
+  const railwayMount = String(process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
+  const uploadDir = getUploadDirectory();
   return {
-    configured: localAllowed,
-    mode: localAllowed ? 'local' : 'unconfigured',
-    message: localAllowed ? '' : 'Хранилище изображений ещё не настроено',
+    configured: Boolean(uploadDir),
+    mode: railwayMount && uploadDir ? 'railway-volume' : uploadDir ? 'local' : 'unconfigured',
+    message: uploadDir ? '' : 'Хранилище изображений ещё не настроено',
   };
 }
 
@@ -22,6 +29,7 @@ async function saveImage(buffer, extension) {
     error.code = 'STORAGE_NOT_CONFIGURED';
     throw error;
   }
+  const uploadDir = getUploadDirectory();
   await fs.mkdir(uploadDir, { recursive: true });
   const filename = `${crypto.randomBytes(24).toString('hex')}.${extension}`;
   const destination = path.join(uploadDir, filename);
@@ -30,7 +38,8 @@ async function saveImage(buffer, extension) {
 }
 
 async function removeImage(imageUrl) {
-  if (getStorageStatus().mode !== 'local' || typeof imageUrl !== 'string' || !imageUrl.startsWith('/uploads/products/')) return false;
+  const uploadDir = getUploadDirectory();
+  if (!uploadDir || typeof imageUrl !== 'string' || !imageUrl.startsWith('/uploads/products/')) return false;
   const filename = path.basename(imageUrl);
   if (!/^[a-f0-9]{48}\.(?:jpg|png|webp)$/.test(filename)) return false;
   try {
@@ -42,4 +51,4 @@ async function removeImage(imageUrl) {
   }
 }
 
-module.exports = { getStorageStatus, saveImage, removeImage };
+module.exports = { getStorageStatus, getUploadDirectory, saveImage, removeImage };
