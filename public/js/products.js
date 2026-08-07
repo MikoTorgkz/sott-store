@@ -90,5 +90,8 @@
     return products.find((product) => product.id === id) || null;
   }
 
-  window.SottCatalog = Object.freeze({ products, formatPrice, getProductBySlug, getProductById });
+  const catalog = Object.freeze({ products, formatPrice, getProductBySlug, getProductById });
+
+  if (typeof window !== 'undefined') window.SottCatalog = catalog;
+  if (typeof module !== 'undefined' && module.exports) module.exports = catalog;
 }());

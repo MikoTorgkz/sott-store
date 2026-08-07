@@ -5,9 +5,16 @@ const { spawnSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const requiredFiles = [
   'server.js',
+  'db.js',
+  'orders.js',
+  '.env.example',
   'public/index.html',
   'public/product.html',
   'public/cart.html',
+  'public/order.html',
+  'public/order-success.html',
+  'public/order-not-found.html',
+  'public/order-unavailable.html',
   'public/styles.css',
   'public/app.js',
   'public/js/products.js',
@@ -15,6 +22,8 @@ const requiredFiles = [
   'public/js/home.js',
   'public/js/product-page.js',
   'public/js/cart-page.js',
+  'public/js/order-page.js',
+  'public/js/order-success.js',
   'public/assets/sott-logo.jpg',
   'public/assets/hero-fashion.svg',
   'public/assets/season-fashion.svg',
@@ -43,7 +52,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-for (const file of ['server.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js']) {
+for (const file of ['server.js', 'db.js', 'orders.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) {
     console.error(result.stderr || `Syntax check failed: ${file}`);
@@ -57,6 +66,13 @@ if (cartLogic.status !== 0) {
   process.exit(cartLogic.status || 1);
 }
 process.stdout.write(cartLogic.stdout);
+
+const orderLogic = spawnSync(process.execPath, [path.join(root, 'scripts/order-logic-test.js')], { encoding: 'utf8' });
+if (orderLogic.status !== 0) {
+  console.error(orderLogic.stderr || orderLogic.stdout || 'Order logic check failed');
+  process.exit(orderLogic.status || 1);
+}
+process.stdout.write(orderLogic.stdout);
 
 const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public/styles.css'), 'utf8');
@@ -80,8 +96,17 @@ if ((productData.match(/slug:/g) || []).length !== 6) {
   process.exit(1);
 }
 const serverSource = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes("app.get('/cart'")) {
-  console.error('Product and cart routes are missing');
+if (!serverSource.includes("app.get('/product/:slug'") || !serverSource.includes("app.get('/cart'") || !serverSource.includes("app.post('/api/orders'") || !serverSource.includes("app.get('/order/:token'")) {
+  console.error('Product, cart or order routes are missing');
+  process.exit(1);
+}
+if (!serverSource.includes("express.json({ limit: '20kb' })")) {
+  console.error('Order API JSON body limit is missing');
+  process.exit(1);
+}
+const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
+if (!/^\.env$/m.test(gitignore)) {
+  console.error('.env must stay ignored');
   process.exit(1);
 }
 if (!css.includes('@media') || !css.includes('overflow-x: hidden')) {

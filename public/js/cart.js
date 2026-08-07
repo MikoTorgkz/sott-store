@@ -64,6 +64,10 @@
     return saveItems(items);
   }
 
+  function clear() {
+    return saveItems([]);
+  }
+
   function getCount(items = readItems()) {
     return items.reduce((total, item) => total + item.quantity, 0);
   }
@@ -155,7 +159,7 @@
     if (drawerCount) drawerCount.textContent = `${getCount(event.detail.items)} шт.`;
   });
 
-  window.SottCart = Object.freeze({ readItems, addItem, removeItem, setQuantity, getCount, getTotal, updateBadges, renderDrawer, setDrawer, MAX_QUANTITY });
+  window.SottCart = Object.freeze({ readItems, addItem, removeItem, setQuantity, clear, getCount, getTotal, updateBadges, renderDrawer, setDrawer, MAX_QUANTITY });
   window.addEventListener('DOMContentLoaded', () => {
     initDrawer();
     const drawerCount = document.querySelector('[data-drawer-count]');

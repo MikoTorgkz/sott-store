@@ -26,7 +26,18 @@
     <div class="container cart-page-heading"><span>Ваш выбор</span><h1>Корзина</h1></div>
     <section class="container cart-layout" data-cart-content hidden>
       <div class="cart-items" data-cart-items></div>
-      <aside class="order-summary"><h2>Ваш заказ</h2><div><span>Товары</span><strong data-cart-subtotal>0 ₸</strong></div><div class="summary-total"><span>Итого</span><strong data-cart-total>0 ₸</strong></div><button class="checkout-button" type="button" data-checkout>Оформить заказ</button><p class="checkout-message" data-checkout-message aria-live="polite"></p></aside>
+      <aside class="order-summary">
+        <h2>Ваш заказ</h2><div><span>Товары</span><strong data-cart-subtotal>0 ₸</strong></div><div class="summary-total"><span>Итого</span><strong data-cart-total>0 ₸</strong></div>
+        <button class="checkout-button" type="button" data-checkout aria-expanded="false" aria-controls="checkout-form">Оформить заказ</button>
+        <form class="checkout-form" id="checkout-form" data-checkout-form hidden novalidate>
+          <div class="checkout-form-head"><span>Оформление</span><h3>Контактные данные</h3><p>Магазин свяжется с вами в WhatsApp для подтверждения заказа.</p></div>
+          <label>Имя<input type="text" name="name" placeholder="Ваше имя" maxlength="100" autocomplete="name" required></label>
+          <label>Город<input type="text" name="city" placeholder="Ваш город" maxlength="100" autocomplete="address-level2" required></label>
+          <label>WhatsApp<input type="tel" name="whatsapp" placeholder="+7 700 000 00 00" maxlength="24" inputmode="tel" autocomplete="tel" required></label>
+          <button class="checkout-submit" type="submit" data-checkout-submit>Создать заказ</button>
+          <p class="checkout-message" data-checkout-message aria-live="polite"></p>
+        </form>
+      </aside>
     </section>
     <section class="container empty-cart" data-empty-cart hidden><div class="empty-cart-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M9 12h7l6 30h27l6-22H19"/><circle cx="27" cy="51" r="3"/><circle cx="46" cy="51" r="3"/></svg></div><h1>Ваша корзина пуста</h1><p>Добавьте товары из каталога</p><a class="primary-button" href="/#catalog">Перейти в каталог →</a></section>
   </main>
