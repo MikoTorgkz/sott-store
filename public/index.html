@@ -7,6 +7,8 @@
   <meta name="theme-color" content="#d96b1b">
   <title>SOTT — мужская одежда</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/js/i18n.js" defer></script>
+  <script src="/js/site-media.js" defer></script>
   <script src="/js/products.js" defer></script>
   <script src="/js/cart.js" defer></script>
   <script src="/js/favorites.js" defer></script>
@@ -56,19 +58,19 @@
       <div class="hero-track" data-hero-track>
         <article class="hero hero-slide" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <h1 id="hero-title">Стиль для<br>современных мужчин</h1>
-            <p>Премиальное качество. Безупречный крой.<br>Уверенность в каждой детали.</p>
+            <h1 id="hero-title" data-i18n="hero.title">Стиль для современных мужчин</h1>
+            <p data-i18n="hero.subtitle">Премиальное качество. Безупречный крой. Уверенность в каждой детали.</p>
             <a class="primary-button" href="/catalog">Смотреть каталог <span aria-hidden="true">→</span></a>
           </div>
-          <div class="hero-media"><img src="/assets/hero-fashion.svg" alt="Fashion-образ SOTT в бежевых и коричневых оттенках"></div>
+          <div class="hero-media"><img src="/assets/hero-fashion.svg" data-site-media="hero_main" alt="Fashion-образ SOTT в бежевых и коричневых оттенках"></div>
         </article>
         <article class="hero hero-slide" id="new" aria-labelledby="season-title">
           <div class="hero-copy">
-            <h2 id="season-title">Новинки<br>сезона</h2>
+            <h2 id="season-title" data-i18n="hero.season">Новинки сезона</h2>
             <p>Откройте для себя свежие образы SOTT.</p>
             <a class="primary-button" href="/catalog?new=1">Смотреть новинки <span aria-hidden="true">→</span></a>
           </div>
-          <div class="hero-media"><img src="/assets/season-fashion.svg" alt="Новый образ SOTT" loading="lazy"></div>
+          <div class="hero-media"><img src="/assets/season-fashion.svg" data-site-media="hero_season" alt="Новый образ SOTT" loading="lazy"></div>
         </article>
       </div>
       <div class="hero-slider-controls">
@@ -85,11 +87,11 @@
           <a class="section-link" href="/catalog">Смотреть все <span>→</span></a>
         </div>
         <div class="category-grid">
-          <a class="category-card" href="/catalog?category=shirts"><div class="category-image"><img src="/assets/categories/shirts.svg" alt="Рубашки" loading="lazy"></div><div class="category-meta"><div><h3>Рубашки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/catalog?category=trousers"><div class="category-image"><img src="/assets/categories/trousers.svg" alt="Брюки" loading="lazy"></div><div class="category-meta"><div><h3>Брюки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/catalog?category=outerwear"><div class="category-image"><img src="/assets/categories/outerwear.svg" alt="Верхняя одежда" loading="lazy"></div><div class="category-meta"><div><h3>Верхняя одежда</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/catalog?category=shoes"><div class="category-image"><img src="/assets/categories/shoes.svg" alt="Обувь" loading="lazy"></div><div class="category-meta"><div><h3>Обувь</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
-          <a class="category-card" href="/catalog?category=accessories"><div class="category-image"><img src="/assets/categories/accessories.svg" alt="Аксессуары" loading="lazy"></div><div class="category-meta"><div><h3>Аксессуары</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=shirts"><div class="category-image"><img src="/assets/categories/shirts.svg" data-site-media="category_shirts" alt="Рубашки" loading="lazy"></div><div class="category-meta"><div><h3>Рубашки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=trousers"><div class="category-image"><img src="/assets/categories/trousers.svg" data-site-media="category_trousers" alt="Брюки" loading="lazy"></div><div class="category-meta"><div><h3>Брюки</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=outerwear"><div class="category-image"><img src="/assets/categories/outerwear.svg" data-site-media="category_outerwear" alt="Верхняя одежда" loading="lazy"></div><div class="category-meta"><div><h3>Верхняя одежда</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=shoes"><div class="category-image"><img src="/assets/categories/shoes.svg" data-site-media="category_shoes" alt="Обувь" loading="lazy"></div><div class="category-meta"><div><h3>Обувь</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
+          <a class="category-card" href="/catalog?category=accessories"><div class="category-image"><img src="/assets/categories/accessories.svg" data-site-media="category_accessories" alt="Аксессуары" loading="lazy"></div><div class="category-meta"><div><h3>Аксессуары</h3><small>Смотреть</small></div><span class="round-arrow">↗</span></div></a>
         </div>
       </div>
     </section>
@@ -124,7 +126,7 @@
     <div class="container footer-grid">
       <div class="footer-brand">
         <a class="brand" href="#top" aria-label="SOTT — на главную"><span class="brand-logo-crop"><img src="/assets/sott-logo.jpg" alt="SOTT — ерлер киімі"></span></a>
-        <p>Современная мужская одежда<br>в фирменном стиле SOTT.</p>
+        <p data-i18n="footer.style">Современная мужская одежда в фирменном стиле SOTT.</p>
       </div>
       <div class="footer-column"><h3>Каталог</h3><a href="/catalog?featured=1">Популярные товары</a><a href="/catalog?new=1">Новинки</a><a href="/catalog">Все категории</a></div>
       <div class="footer-column"><h3>Информация</h3><a href="#about">О магазине</a><span>Доставка · по Казахстану</span><span>Ежедневно 10:00–24:00</span></div>
