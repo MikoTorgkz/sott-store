@@ -1,6 +1,7 @@
 (function () {
   const STORAGE_KEY = 'sott_cart_v1';
   const MAX_QUANTITY = 10;
+  const tr = (key, fallback, params) => window.SottI18n ? window.SottI18n.t(key, params) : fallback;
 
   function readItems() {
     try {
@@ -91,14 +92,14 @@
     if (!list || !total) return;
 
     if (!items.length) {
-      list.innerHTML = '<div class="mini-cart-empty"><p>Ваша корзина пуста</p><a href="/#catalog">Перейти в каталог</a></div>';
+      list.innerHTML = `<div class="mini-cart-empty"><p>${tr('cart.empty', 'Ваша корзина пуста')}</p><a href="/catalog">${tr('catalog.go', 'Перейти в каталог')}</a></div>`;
     } else {
       list.innerHTML = items.map((item) => `
         <article class="mini-cart-item">
           <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy">
           <div class="mini-cart-item-copy">
             <h3>${escapeHtml(item.name)}</h3>
-            <p>Размер: ${escapeHtml(item.size)} · ${item.quantity} шт.</p>
+            <p>${tr('size', 'Размер')}: ${escapeHtml(item.size)} · ${item.quantity} ${tr('unit.pcs', 'шт.')}</p>
             <strong>${window.SottCatalog.formatPrice(item.price * item.quantity)}</strong>
           </div>
           <button class="mini-cart-remove" type="button" data-cart-remove="${escapeHtml(item.productId)}" data-cart-size="${escapeHtml(item.size)}" aria-label="Удалить ${escapeHtml(item.name)}">×</button>
@@ -132,9 +133,9 @@
     document.body.insertAdjacentHTML('beforeend', `
       <div class="cart-overlay" data-cart-overlay></div>
       <aside class="cart-drawer" data-cart-drawer aria-hidden="true" aria-label="Мини-корзина">
-        <div class="cart-drawer-head"><div><span>Корзина</span><strong data-drawer-count></strong></div><button type="button" data-cart-close aria-label="Закрыть корзину">×</button></div>
+        <div class="cart-drawer-head"><div><span>${tr('cart', 'Корзина')}</span><strong data-drawer-count></strong></div><button type="button" data-cart-close aria-label="${tr('cart', 'Корзина')}">×</button></div>
         <div class="mini-cart-list" data-mini-cart-list></div>
-        <div class="cart-drawer-footer"><div><span>Итого</span><strong data-mini-cart-total>0 ₸</strong></div><a class="primary-button drawer-cart-link" href="/cart">Перейти в корзину <span>→</span></a></div>
+        <div class="cart-drawer-footer"><div><span>${tr('total', 'Итого')}</span><strong data-mini-cart-total>0 ₸</strong></div><a class="primary-button drawer-cart-link" href="/cart">${tr('cart', 'Корзина')} <span>→</span></a></div>
       </aside>`);
   }
 
@@ -160,13 +161,13 @@
     updateBadges(event.detail.items);
     renderDrawer(event.detail.items);
     const drawerCount = document.querySelector('[data-drawer-count]');
-    if (drawerCount) drawerCount.textContent = `${getCount(event.detail.items)} шт.`;
+    if (drawerCount) drawerCount.textContent = `${getCount(event.detail.items)} ${tr('unit.pcs', 'шт.')}`;
   });
 
   window.SottCart = Object.freeze({ readItems, addItem, removeItem, setQuantity, clear, getCount, getTotal, updateBadges, renderDrawer, setDrawer, MAX_QUANTITY });
   window.addEventListener('DOMContentLoaded', () => {
     initDrawer();
     const drawerCount = document.querySelector('[data-drawer-count]');
-    if (drawerCount) drawerCount.textContent = `${getCount()} шт.`;
+    if (drawerCount) drawerCount.textContent = `${getCount()} ${tr('unit.pcs', 'шт.')}`;
   });
 }());

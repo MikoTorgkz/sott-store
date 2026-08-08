@@ -32,6 +32,17 @@ async function run() {
     assert.equal(response.status, 401, 'product admin API must require a session');
     response = await fetch(`${base}/api/admin/products/1/images`, { method: 'POST' });
     assert.equal(response.status, 401, 'product image upload must require a session before multipart parsing');
+    response = await fetch(`${base}/api/admin/site-media/hero_main/image`, { method: 'POST' });
+    assert.equal(response.status, 401, 'site media upload must require admin session');
+    response = await fetch(`${base}/api/admin/site-media/hero_main/image`, { method: 'DELETE' });
+    assert.equal(response.status, 401, 'site media reset must require admin session');
+
+    response = await fetch(`${base}/api/site-media`);
+    assert.equal(response.status, 200, 'public site media must keep default assets available without database');
+    const publicMedia = (await response.json()).media;
+    assert.equal(publicMedia.hero_main, '/assets/hero-fashion.svg');
+    assert.equal(JSON.stringify(publicMedia).includes('UPLOADS_DIR'), false);
+    assert.equal(JSON.stringify(publicMedia).includes('/mnt/'), false);
 
     response = await fetch(`${base}/admin/login`);
     assert.equal(response.status, 200);
@@ -87,6 +98,26 @@ async function run() {
     response = await fetch(`${base}/admin/products/new`, { headers: { Cookie: cookie } });
     assert.equal(response.status, 200, 'new product page must open for an authenticated admin');
     assert.match(response.headers.get('content-security-policy') || '', /img-src 'self' blob:/, 'admin CSP must allow blob previews for selected local images');
+
+    response = await fetch(`${base}/admin/media`, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200, 'site media page must open for authenticated admin');
+    assert.match(await response.text(), /data-nav="media"/);
+
+    response = await fetch(`${base}/api/admin/site-media`, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200, 'site media admin view must retain defaults if database is unavailable');
+    assert.equal((await response.json()).media.length, 8);
+
+    response = await fetch(`${base}/api/admin/site-media/hero_main/image`, {
+      method: 'POST', headers: { Cookie: cookie, Origin: base, 'X-CSRF-Token': login.csrfToken },
+    });
+    assert.equal(response.status, 503, 'site media upload must clearly report missing persistent storage');
+    assert.equal((await response.json()).error, 'Хранилище фотографий не настроено');
+
+    response = await fetch(`${base}/api/admin/site-media/hero_main/image`, { method: 'DELETE', headers: { Cookie: cookie, Origin: base } });
+    assert.equal(response.status, 403, 'site media reset must require CSRF token');
+
+    response = await fetch(`${base}/api/admin/site-media/not-allowed/image`, { method: 'DELETE', headers: { Cookie: cookie, Origin: base, 'X-CSRF-Token': login.csrfToken } });
+    assert.equal(response.status, 404, 'arbitrary site media keys must be rejected');
 
     response = await fetch(`${base}/api/admin/products/1/images`, {
       method: 'POST',

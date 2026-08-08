@@ -88,6 +88,13 @@ async function initializeDatabase() {
       UNIQUE (product_id, image_url)
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS site_media (
+      key VARCHAR(80) PRIMARY KEY,
+      image_url TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_committed BOOLEAN NOT NULL DEFAULT FALSE');
   await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_request_id VARCHAR(64)');
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_request_id ON orders (client_request_id) WHERE client_request_id IS NOT NULL');

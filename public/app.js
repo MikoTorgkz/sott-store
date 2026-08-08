@@ -1,6 +1,7 @@
 const menuButton = document.querySelector('.menu-toggle');
 const nav = document.querySelector('.main-nav');
 const navLinks = document.querySelectorAll('.main-nav a');
+const t = (key, params) => window.SottI18n ? window.SottI18n.t(key, params) : key;
 
 function closeMenu() {
   if (!menuButton || !nav) return;
@@ -34,9 +35,9 @@ function ensureSearchPanel() {
   if (panel) return panel;
   panel = document.createElement('div'); panel.className = 'header-search-panel'; panel.dataset.headerSearch = '';
   const form = document.createElement('form'); form.action = '/catalog'; form.method = 'get'; form.className = 'header-search-form';
-  const label = document.createElement('label'); label.textContent = 'Поиск'; label.setAttribute('for', 'header-search-input');
-  const input = document.createElement('input'); input.id = 'header-search-input'; input.name = 'q'; input.type = 'search'; input.maxLength = 100; input.placeholder = 'Найти товар';
-  const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = 'Найти';
+  const label = document.createElement('label'); label.textContent = t('search'); label.setAttribute('for', 'header-search-input');
+  const input = document.createElement('input'); input.id = 'header-search-input'; input.name = 'q'; input.type = 'search'; input.maxLength = 100; input.placeholder = t('search.placeholder');
+  const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = t('search.submit');
   form.append(label, input, submit); panel.append(form); document.body.append(panel); return panel;
 }
 
@@ -57,7 +58,8 @@ if (heroCarousel) {
   const slides = [...track.children];
   const dots = [...heroCarousel.querySelectorAll('[data-hero-dot]')];
   let currentSlide = 0;
-  let touchStartX = null;
+  let gesture = null;
+  const swipeThreshold = 52;
 
   function showHeroSlide(index) {
     currentSlide = (index + slides.length) % slides.length;
@@ -72,13 +74,33 @@ if (heroCarousel) {
   heroCarousel.querySelector('[data-hero-prev]').addEventListener('click', () => showHeroSlide(currentSlide - 1));
   heroCarousel.querySelector('[data-hero-next]').addEventListener('click', () => showHeroSlide(currentSlide + 1));
   dots.forEach((dot) => dot.addEventListener('click', () => showHeroSlide(Number(dot.dataset.heroDot))));
-  heroCarousel.addEventListener('touchstart', (event) => { touchStartX = event.changedTouches[0]?.clientX ?? null; }, { passive: true });
-  heroCarousel.addEventListener('touchend', (event) => {
-    if (touchStartX === null) return;
-    const distance = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
-    if (Math.abs(distance) > 45) showHeroSlide(currentSlide + (distance < 0 ? 1 : -1));
-    touchStartX = null;
-  }, { passive: true });
+  function beginGesture(x, y, pointerId = null) { gesture = { x, y, pointerId }; }
+  function endGesture(x, y, pointerId = null) {
+    if (!gesture || (gesture.pointerId !== null && pointerId !== gesture.pointerId)) return;
+    const distanceX = x - gesture.x;
+    const distanceY = y - gesture.y;
+    gesture = null;
+    if (Math.abs(distanceX) < swipeThreshold || Math.abs(distanceX) <= Math.abs(distanceY) * 1.15) return;
+    showHeroSlide(currentSlide + (distanceX < 0 ? 1 : -1));
+  }
+  if ('PointerEvent' in window) {
+    heroCarousel.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      beginGesture(event.clientX, event.clientY, event.pointerId);
+    }, { passive: true });
+    heroCarousel.addEventListener('pointerup', (event) => endGesture(event.clientX, event.clientY, event.pointerId), { passive: true });
+    heroCarousel.addEventListener('pointercancel', () => { gesture = null; }, { passive: true });
+  } else {
+    heroCarousel.addEventListener('touchstart', (event) => {
+      const touch = event.changedTouches[0];
+      if (touch) beginGesture(touch.clientX, touch.clientY);
+    }, { passive: true });
+    heroCarousel.addEventListener('touchend', (event) => {
+      const touch = event.changedTouches[0];
+      if (touch) endGesture(touch.clientX, touch.clientY);
+    }, { passive: true });
+    heroCarousel.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
+  }
   heroCarousel.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') showHeroSlide(currentSlide - 1);
     if (event.key === 'ArrowRight') showHeroSlide(currentSlide + 1);

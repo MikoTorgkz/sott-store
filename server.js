@@ -9,8 +9,9 @@ const {
   listAdminProducts, getAdminProductById, createProduct, updateProduct, setProductPublished,
   addProductImages, setPrimaryImage, deleteProductImage,
 } = require('./catalog');
-const { uploadProductImages, validateUploadedImage } = require('./product-upload');
-const { getStorageStatus, getUploadDirectory, saveImage, removeImage } = require('./product-storage');
+const { uploadProductImages, uploadSiteMediaImage, validateUploadedImage } = require('./product-upload');
+const { getStorageStatus, getUploadDirectory, getSiteMediaDirectory, saveImage, saveSiteMediaImage, removeImage, removeSiteMediaImage } = require('./product-storage');
+const { isSiteMediaKey, listSiteMedia, defaultSiteMedia, setSiteMedia, resetSiteMedia, publicSiteMedia } = require('./site-media');
 const {
   checkLoginRateLimit,
   clearLoginFailures,
@@ -47,6 +48,16 @@ app.use((_req, res, next) => {
 const persistentUploadDir = getUploadDirectory();
 if (persistentUploadDir) {
   app.use('/uploads/products', express.static(persistentUploadDir, {
+    fallthrough: false,
+    dotfiles: 'deny',
+    index: false,
+    maxAge: '7d',
+    setHeaders(res) { res.setHeader('X-Content-Type-Options', 'nosniff'); },
+  }));
+}
+const persistentSiteMediaDir = getSiteMediaDirectory();
+if (persistentSiteMediaDir) {
+  app.use('/uploads/site-media', express.static(persistentSiteMediaDir, {
     fallthrough: false,
     dotfiles: 'deny',
     index: false,
@@ -186,6 +197,16 @@ app.get('/api/categories', async (_req, res) => {
   }
 });
 
+app.get('/api/site-media', async (_req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.json({ media: publicSiteMedia(await listSiteMedia()) });
+  } catch (error) {
+    console.error('SOTT public site media fallback:', safeErrorMessage(error));
+    return res.json({ media: publicSiteMedia(defaultSiteMedia()) });
+  }
+});
+
 app.use(['/admin', '/admin/*splat'], (_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -277,6 +298,57 @@ app.get('/api/admin/categories', requireAdminApi, async (_req, res) => {
 
 app.get('/api/admin/product-storage', requireAdminApi, (_req, res) => {
   res.json(getStorageStatus());
+});
+
+app.get('/api/admin/site-media', requireAdminApi, async (_req, res) => {
+  try {
+    return res.json({ media: await listSiteMedia(), storage: getStorageStatus(), databaseAvailable: true });
+  } catch (error) {
+    console.error('SOTT admin site media failed:', safeErrorMessage(error));
+    return res.json({ media: defaultSiteMedia(), storage: getStorageStatus(), databaseAvailable: false });
+  }
+});
+
+app.post('/api/admin/site-media/:key/image', requireAdminApi, requireCsrf, requireSiteMediaKey, requireProductStorage, uploadSiteMediaImage, async (req, res) => {
+  const key = String(req.params.key || '');
+  if (!req.file) return res.status(400).json({ error: 'Выберите изображение' });
+  let format;
+  try { format = validateUploadedImage(req.file); } catch (error) { return res.status(400).json({ error: error.message || 'Не удалось загрузить фотографию' }); }
+  let previous = null;
+  let uploadedUrl = null;
+  let persisted = false;
+  try {
+    previous = (await listSiteMedia()).find((item) => item.key === key) || null;
+    uploadedUrl = await saveSiteMediaImage(req.file.buffer, format);
+    const saved = await setSiteMedia(key, uploadedUrl);
+    if (!saved) throw new Error('invalid media key');
+    persisted = true;
+    if (previous && previous.custom) {
+      await removeSiteMediaImage(previous.imageUrl).catch((error) => {
+        console.error('SOTT old site media cleanup failed:', safeErrorMessage(error));
+      });
+    }
+    return res.status(201).json({ ok: true });
+  } catch (error) {
+    if (uploadedUrl && !persisted) await removeSiteMediaImage(uploadedUrl).catch(() => {});
+    return handleCatalogError(error, res, 'Не удалось загрузить фотографию');
+  }
+});
+
+app.delete('/api/admin/site-media/:key/image', requireAdminApi, requireCsrf, requireSiteMediaKey, async (req, res) => {
+  const key = String(req.params.key || '');
+  try {
+    const previous = (await listSiteMedia()).find((item) => item.key === key) || null;
+    await resetSiteMedia(key);
+    if (previous && previous.custom) {
+      await removeSiteMediaImage(previous.imageUrl).catch((error) => {
+        console.error('SOTT reset site media cleanup failed:', safeErrorMessage(error));
+      });
+    }
+    return res.json({ ok: true });
+  } catch (error) {
+    return handleCatalogError(error, res, 'Не удалось вернуть стандартное изображение');
+  }
 });
 
 app.get('/api/admin/products', requireAdminApi, async (req, res) => {
@@ -413,6 +485,7 @@ app.get('/admin/products/:id', requireAdminPage, (req, res) => {
   if (!parseAdminOrderId(req.params.id)) return res.status(404).sendFile(path.join(adminDir, 'not-found.html'));
   return res.sendFile(path.join(adminDir, 'index.html'));
 });
+app.get('/admin/media', requireAdminPage, (_req, res) => res.sendFile(path.join(adminDir, 'index.html')));
 
 app.post('/api/orders', async (req, res) => {
   if (!isValidAdminWhatsApp(process.env.ADMIN_WHATSAPP)) {
@@ -565,6 +638,11 @@ function handleCatalogError(error, res, fallback) {
 function requireProductStorage(_req, res, next) {
   const storage = getStorageStatus();
   if (!storage.configured) return res.status(503).json({ error: 'Хранилище фотографий не настроено' });
+  return next();
+}
+
+function requireSiteMediaKey(req, res, next) {
+  if (!isSiteMediaKey(String(req.params.key || ''))) return res.status(404).json({ error: 'Медиа-позиция не найдена' });
   return next();
 }
 
