@@ -23,6 +23,10 @@
     const session = await api('/api/admin/session');
     csrfToken = session.csrfToken;
     setupNavigation();
+    if (window.location.pathname === '/admin/media') {
+      if (!window.SottAdminMedia) throw new Error('Модуль медиа не загружен');
+      return window.SottAdminMedia.initialize({ content, title, csrfToken, showNotice });
+    }
     if (window.location.pathname.startsWith('/admin/products')) {
       if (!window.SottAdminProducts) throw new Error('Модуль товаров не загружен');
       return window.SottAdminProducts.initialize({ content, title, api, csrfToken, showNotice, price, dateTime });
@@ -36,7 +40,8 @@
   function setupNavigation() {
     const isProducts = window.location.pathname.startsWith('/admin/products');
     const isOrders = window.location.pathname.startsWith('/admin/orders');
-    document.querySelector(`[data-nav="${isProducts ? 'products' : isOrders ? 'orders' : 'overview'}"]`)?.classList.add('active');
+    const isMedia = window.location.pathname === '/admin/media';
+    document.querySelector(`[data-nav="${isMedia ? 'media' : isProducts ? 'products' : isOrders ? 'orders' : 'overview'}"]`)?.classList.add('active');
 
     logoutButton?.addEventListener('click', async () => {
       logoutButton.disabled = true;
@@ -49,12 +54,17 @@
 
     menuButton?.addEventListener('click', () => setMenuOpen(!sidebar.classList.contains('is-open')));
     backdrop?.addEventListener('click', () => setMenuOpen(false));
+    sidebar?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setMenuOpen(false)));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setMenuOpen(false); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 760) setMenuOpen(false); });
+    setMenuOpen(false);
   }
 
   function setMenuOpen(open) {
     sidebar?.classList.toggle('is-open', open);
     if (backdrop) backdrop.hidden = !open;
     menuButton?.setAttribute('aria-expanded', String(open));
+    document.body.classList.toggle('admin-menu-open', open);
   }
 
   async function renderDashboard() {
