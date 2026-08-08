@@ -23,6 +23,16 @@ const uploadProductImages = multer({
   },
 }).array('images', MAX_IMAGES);
 
+const uploadSiteMediaImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 1, fileSize: MAX_IMAGE_SIZE, fields: 2 },
+  fileFilter(_req, file, callback) {
+    const extension = path.extname(String(file.originalname || '')).toLowerCase();
+    if (!ALLOWED_MIME.has(file.mimetype) || EXTENSION_MIME.get(extension) !== file.mimetype) return callback(createUploadError('Поддерживаются JPEG, PNG и WebP'));
+    return callback(null, true);
+  },
+}).single('image');
+
 function validateUploadedImage(file) {
   const extension = path.extname(String(file && file.originalname || '')).toLowerCase();
   if (!file || !Buffer.isBuffer(file.buffer) || !ALLOWED_MIME.has(file.mimetype) || EXTENSION_MIME.get(extension) !== file.mimetype) {
@@ -41,4 +51,4 @@ function createUploadError(message) {
   return error;
 }
 
-module.exports = { MAX_IMAGES, MAX_IMAGE_SIZE, uploadProductImages, validateUploadedImage };
+module.exports = { MAX_IMAGES, MAX_IMAGE_SIZE, uploadProductImages, uploadSiteMediaImage, validateUploadedImage };
