@@ -2,6 +2,7 @@
   let product = null;
   let selectedSize = '';
   let quantity = 1;
+  const t = (key, params) => window.SottI18n ? window.SottI18n.t(key, params) : key;
 
   function getSlug() {
     const match = window.location.pathname.match(/^\/product\/([^/]+)\/?$/);
@@ -13,11 +14,11 @@
       const response = await fetch(`/api/products/${encodeURIComponent(getSlug())}`, { headers: { Accept: 'application/json' } });
       if (response.status === 404) return showNotFound();
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Не удалось загрузить товар');
+      if (!response.ok) throw new Error(result.error || t('catalog.loadError'));
       product = result;
     } catch (_error) {
-      setText('[data-product-name]', 'Не удалось загрузить товар');
-      setText('[data-product-short]', 'Попробуйте обновить страницу немного позже.');
+      setText('[data-product-name]', t('catalog.loadError'));
+      setText('[data-product-short]', t('order.retryLater'));
       return;
     }
 
@@ -28,7 +29,7 @@
 
     document.title = `${product.name} — SOTT`;
     setText('[data-breadcrumb-product]', product.name);
-    setText('[data-product-category]', product.category);
+    setText('[data-product-category]', window.SottI18n?.category(product.categorySlug, product.category) || product.category);
     setText('[data-product-name]', product.name);
     setText('[data-product-price]', window.SottCatalog.formatPrice(product.price));
     setText('[data-product-short]', product.shortDescription);
@@ -44,7 +45,7 @@
   function showNotFound() {
       document.querySelector('[data-product-view]').hidden = true;
       document.querySelector('[data-product-not-found]').hidden = false;
-      document.title = 'Товар не найден — SOTT';
+      document.title = `${t('product.notFound')} — SOTT`;
   }
 
   function setText(selector, value) {
@@ -64,7 +65,7 @@
       button.type = 'button';
       button.className = `thumbnail-button${index === 0 ? ' is-active' : ''}`;
       button.dataset.thumbIndex = String(index);
-      button.setAttribute('aria-label', `Показать изображение ${index + 1}`);
+      button.setAttribute('aria-label', t('image.show', { count: index + 1 }));
       const preview = document.createElement('img');
       preview.src = image;
       preview.alt = `${product.name}, вид ${index + 1}`;
@@ -118,18 +119,18 @@
     document.querySelector('[data-qty-plus]').addEventListener('click', () => setQuantity(quantity + 1));
     document.querySelector('[data-add-to-cart]').addEventListener('click', () => {
       if (!selectedSize) {
-        setText('[data-size-message]', 'Выберите размер');
+        setText('[data-size-message]', t('product.selectSize'));
         document.querySelector('[data-size-options]').querySelector('button:not(:disabled)')?.focus();
         return;
       }
       const stock = getSelectedStock();
       if (quantity > stock) {
-        setText('[data-size-message]', `В этом размере осталось ${stock} шт.`);
+        setText('[data-size-message]', t('stock.left', { count: stock }));
         setQuantity(stock);
         return;
       }
       window.SottCart.addItem(product, selectedSize, quantity);
-      setText('[data-add-success]', 'Товар добавлен в корзину');
+      setText('[data-add-success]', t('product.added'));
       window.setTimeout(() => setText('[data-add-success]', ''), 2600);
     });
     document.querySelector('[data-size-guide-open]').addEventListener('click', openSizeModal);
@@ -145,7 +146,7 @@
       const active = window.SottFavorites.has(product.id);
       button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active));
       button.setAttribute('aria-label', `${active ? 'Удалить' : 'Добавить'} ${product.name} ${active ? 'из' : 'в'} избранного`);
-      button.querySelector('span').textContent = active ? 'В избранном' : 'В избранное';
+      button.querySelector('span').textContent = active ? t('product.favorited') : t('product.favorite');
     };
     button.addEventListener('click', () => { window.SottFavorites.toggle(product.id); sync(); });
     window.addEventListener('sott:favorites-change', sync); sync();
@@ -166,11 +167,11 @@
 
   function renderSizeTable() {
     const target = document.querySelector('[data-size-table]');
-    const isShoes = product.category === 'Обувь';
+    const isShoes = product.categorySlug === 'shoes';
     if (isShoes) {
-      target.innerHTML = '<table class="size-table"><thead><tr><th>Размер</th><th>Длина стопы, см</th></tr></thead><tbody><tr><td>40</td><td>25,5</td></tr><tr><td>41</td><td>26</td></tr><tr><td>42</td><td>26,5</td></tr><tr><td>43</td><td>27,5</td></tr><tr><td>44</td><td>28</td></tr></tbody></table>';
+      target.innerHTML = `<table class="size-table"><thead><tr><th>${t('size')}</th><th>${t('size.foot')}</th></tr></thead><tbody><tr><td>40</td><td>25,5</td></tr><tr><td>41</td><td>26</td></tr><tr><td>42</td><td>26,5</td></tr><tr><td>43</td><td>27,5</td></tr><tr><td>44</td><td>28</td></tr></tbody></table>`;
     } else {
-      target.innerHTML = '<table class="size-table"><thead><tr><th>Размер</th><th>Грудь, см</th><th>Талия, см</th></tr></thead><tbody><tr><td>S</td><td>88–92</td><td>76–80</td></tr><tr><td>M</td><td>96–100</td><td>84–88</td></tr><tr><td>L</td><td>104–108</td><td>92–96</td></tr><tr><td>XL</td><td>112–116</td><td>100–104</td></tr><tr><td>XXL</td><td>120–124</td><td>108–112</td></tr></tbody></table>';
+      target.innerHTML = `<table class="size-table"><thead><tr><th>${t('size')}</th><th>${t('size.chest')}</th><th>${t('size.waist')}</th></tr></thead><tbody><tr><td>S</td><td>88–92</td><td>76–80</td></tr><tr><td>M</td><td>96–100</td><td>84–88</td></tr><tr><td>L</td><td>104–108</td><td>92–96</td></tr><tr><td>XL</td><td>112–116</td><td>100–104</td></tr><tr><td>XXL</td><td>120–124</td><td>108–112</td></tr></tbody></table>`;
     }
   }
 
