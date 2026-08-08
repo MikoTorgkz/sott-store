@@ -1,6 +1,7 @@
 (function () {
   const grid = document.querySelector('[data-product-grid]');
   if (!grid || !window.SottCatalog) return;
+  const t = (key) => window.SottI18n ? window.SottI18n.t(key) : key;
 
   async function init() {
     const params = new URLSearchParams(window.location.search);
@@ -24,12 +25,12 @@
       renderProducts(products);
       updateHeading(category, onlyNew, showAll);
     } catch (_error) {
-      grid.replaceChildren(emptyMessage('Не удалось загрузить товары. Попробуйте обновить страницу.'));
+      grid.replaceChildren(emptyMessage(t('catalog.loadError')));
     }
   }
 
   function renderProducts(products) {
-    if (!products.length) return grid.replaceChildren(emptyMessage('В этой категории пока нет товаров'));
+    if (!products.length) return grid.replaceChildren(emptyMessage(t('catalog.none')));
     grid.replaceChildren(...products.map(createCard));
   }
 
@@ -46,13 +47,13 @@
     const details = document.createElement('div'); details.className = 'product-details';
     const title = document.createElement('h3'); const titleLink = document.createElement('a'); titleLink.href = imageLink.href; titleLink.textContent = product.name; title.append(titleLink);
     const price = document.createElement('strong'); price.textContent = window.SottCatalog.formatPrice(product.price);
-    const choose = document.createElement('a'); choose.className = 'add-button choose-size-button'; choose.href = imageLink.href; choose.textContent = 'Выбрать размер';
+    const choose = document.createElement('a'); choose.className = 'add-button choose-size-button'; choose.href = imageLink.href; choose.textContent = t('chooseSize');
     details.append(title, price, choose); article.append(media, details); return article;
   }
 
   function updateHeading(category, onlyNew, showAll) {
     const heading = document.querySelector('#catalog-title');
-    if (heading) heading.textContent = onlyNew ? 'Новинки' : category || showAll ? 'Каталог' : 'Популярные товары';
+    if (heading) heading.textContent = onlyNew ? t('nav.new') : category || showAll ? t('nav.catalog') : t('products.popular');
   }
 
   function emptyMessage(text) {
