@@ -1,4 +1,5 @@
 (function () {
+  const tr = (key, fallback, params) => window.SottI18n ? window.SottI18n.t(key, params) : fallback;
   function init() {
     render();
     window.addEventListener('sott:cart-changed', render);
@@ -25,16 +26,16 @@
     const name = String(data.get('name') || '').trim();
     const city = String(data.get('city') || '').trim();
     const whatsapp = String(data.get('whatsapp') || '').trim();
-    if (!name) return showCheckoutError(message, 'Введите имя');
-    if (!city) return showCheckoutError(message, 'Введите город');
-    if (!whatsapp) return showCheckoutError(message, 'Укажите корректный WhatsApp');
+    if (!name) return showCheckoutError(message, tr('form.nameRequired', 'Введите имя'));
+    if (!city) return showCheckoutError(message, tr('form.cityRequired', 'Введите город'));
+    if (!whatsapp) return showCheckoutError(message, tr('form.whatsappInvalid', 'Укажите корректный WhatsApp'));
 
     const items = window.SottCart.readItems().map((item) => ({ productId: item.productId, size: item.size, quantity: item.quantity }));
-    if (!items.length) return showCheckoutError(message, 'Корзина пуста');
+    if (!items.length) return showCheckoutError(message, tr('cart.emptyShort', 'Корзина пуста'));
     if (!form.dataset.requestId) form.dataset.requestId = createRequestId();
 
     button.disabled = true;
-    button.textContent = 'Создаём заказ...';
+    button.textContent = tr('checkout.creating', 'Создаём заказ...');
     message.textContent = '';
     try {
       const response = await fetch('/api/orders', {
@@ -43,14 +44,14 @@
         body: JSON.stringify({ name, city, whatsapp, items, requestId: form.dataset.requestId }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Не удалось создать заказ. Попробуйте ещё раз');
+      if (!response.ok) throw new Error(localizeCheckoutError(result.error) || tr('checkout.error', 'Не удалось создать заказ. Попробуйте ещё раз'));
       window.SottCart.clear();
       if (result.whatsappUrl) window.open(result.whatsappUrl, '_blank', 'noopener');
       window.location.assign(`/order-success?token=${encodeURIComponent(result.token)}`);
     } catch (error) {
-      showCheckoutError(message, error.message || 'Не удалось создать заказ. Попробуйте ещё раз');
+      showCheckoutError(message, error.message || tr('checkout.error', 'Не удалось создать заказ. Попробуйте ещё раз'));
       button.disabled = false;
-      button.textContent = 'Создать заказ';
+      button.textContent = tr('checkout.create', 'Создать заказ');
     }
   }
 
@@ -69,6 +70,14 @@
     return false;
   }
 
+  function localizeCheckoutError(message) {
+    const known = {
+      'Введите имя': 'form.nameRequired', 'Введите город': 'form.cityRequired', 'Укажите корректный WhatsApp': 'form.whatsappInvalid',
+      'Корзина пуста': 'cart.emptyShort', 'Не удалось создать заказ. Попробуйте ещё раз': 'checkout.error',
+    };
+    return known[message] ? tr(known[message], message) : message;
+  }
+
   function render() {
     const items = window.SottCart.readItems();
     const content = document.querySelector('[data-cart-content]');
@@ -80,10 +89,10 @@
     document.querySelector('[data-cart-items]').innerHTML = items.map((item) => `
       <article class="cart-line" data-cart-line>
         <a class="cart-line-image" href="${productUrl(item)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy"></a>
-        <div class="cart-line-info"><h2><a href="${productUrl(item)}">${escapeHtml(item.name)}</a></h2><p>Размер: <strong>${escapeHtml(item.size)}</strong></p><span>${window.SottCatalog.formatPrice(item.price)} / шт.</span></div>
+        <div class="cart-line-info"><h2><a href="${productUrl(item)}">${escapeHtml(item.name)}</a></h2><p>${tr('size', 'Размер')}: <strong>${escapeHtml(item.size)}</strong></p><span>${window.SottCatalog.formatPrice(item.price)} / ${tr('unit.pcs', 'шт.')}</span></div>
         <div class="cart-line-quantity"><button type="button" data-line-minus data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Уменьшить количество">−</button><span>${item.quantity}</span><button type="button" data-line-plus data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Увеличить количество">+</button></div>
         <strong class="cart-line-total">${window.SottCatalog.formatPrice(item.price * item.quantity)}</strong>
-        <button class="cart-line-remove" type="button" data-line-remove data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="Удалить ${escapeHtml(item.name)}">Удалить</button>
+        <button class="cart-line-remove" type="button" data-line-remove data-product-id="${escapeHtml(item.productId)}" data-size="${escapeHtml(item.size)}" aria-label="${tr('remove', 'Удалить')} ${escapeHtml(item.name)}">${tr('remove', 'Удалить')}</button>
       </article>`).join('');
 
     const total = window.SottCart.getTotal(items);
