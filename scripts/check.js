@@ -123,6 +123,22 @@ if (!html.includes('class="menu-toggle"') || !html.includes('id="main-nav"')) {
   console.error('Mobile menu controls are missing from index.html');
   process.exit(1);
 }
+if (html.includes('↗') || (html.match(/class="round-arrow" aria-hidden="true"><\/span>/g) || []).length !== 5) {
+  console.error('Category cards must use five CSS arrows without Unicode emoji');
+  process.exit(1);
+}
+if (!css.includes('.round-arrow::before') || !css.includes('.round-arrow::after')) {
+  console.error('Category card CSS arrow is missing');
+  process.exit(1);
+}
+if (!css.includes('.header-actions [data-search-toggle] { display: none; }') || !css.includes('.header-actions .favorite-header, .header-actions .cart-icon')) {
+  console.error('Mobile header must hide search explicitly while keeping favorite and cart controls');
+  process.exit(1);
+}
+if (!css.includes('pointer-events: none') || !css.includes('pointer-events: auto')) {
+  console.error('Closed and open mobile navigation pointer-event states are missing');
+  process.exit(1);
+}
 const localAssets = [...html.matchAll(/(?:src|href)="\/(assets\/[^"#?]+)"/g)].map((match) => match[1]);
 const missingAssets = localAssets.filter((asset) => !fs.existsSync(path.join(root, 'public', asset)));
 if (missingAssets.length) {
