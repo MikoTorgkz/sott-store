@@ -13,7 +13,10 @@ const requiredFiles = [
   'catalog.js',
   'product-storage.js',
   'product-upload.js',
+  'site-media.js',
   'scripts/product-upload-http-test.js',
+  'scripts/site-media-logic-test.js',
+  'scripts/i18n-logic-test.js',
   'scripts/production-http-test.js',
   '.env.example',
   'admin/login.html',
@@ -47,6 +50,9 @@ const requiredFiles = [
   'public/js/admin-login.js',
   'public/js/admin.js',
   'public/js/admin-products.js',
+  'public/js/admin-media.js',
+  'public/js/i18n.js',
+  'public/js/site-media.js',
   'public/assets/product-placeholder.svg',
   'public/assets/sott-logo.jpg',
   'public/assets/hero-fashion.svg',
@@ -76,7 +82,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'catalog-seed.js', 'catalog.js', 'product-storage.js', 'product-upload.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/catalog-page.js', 'public/js/favorites.js', 'public/js/favorites-page.js', 'public/js/storefront-card.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js', 'public/js/admin-products.js']) {
+for (const file of ['server.js', 'db.js', 'orders.js', 'admin-auth.js', 'admin-orders.js', 'catalog-seed.js', 'catalog.js', 'product-storage.js', 'product-upload.js', 'site-media.js', 'public/app.js', 'public/js/products.js', 'public/js/cart.js', 'public/js/home.js', 'public/js/catalog-page.js', 'public/js/favorites.js', 'public/js/favorites-page.js', 'public/js/storefront-card.js', 'public/js/product-page.js', 'public/js/cart-page.js', 'public/js/order-page.js', 'public/js/order-success.js', 'public/js/admin-login.js', 'public/js/admin.js', 'public/js/admin-products.js', 'public/js/admin-media.js', 'public/js/i18n.js', 'public/js/site-media.js']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) {
     console.error(result.stderr || `Syntax check failed: ${file}`);
@@ -98,7 +104,7 @@ if (orderLogic.status !== 0) {
 }
 process.stdout.write(orderLogic.stdout);
 
-for (const testFile of ['scripts/catalog-logic-test.js', 'scripts/admin-logic-test.js', 'scripts/admin-http-test.js', 'scripts/product-upload-http-test.js', 'scripts/production-http-test.js']) {
+for (const testFile of ['scripts/catalog-logic-test.js', 'scripts/admin-logic-test.js', 'scripts/site-media-logic-test.js', 'scripts/i18n-logic-test.js', 'scripts/admin-http-test.js', 'scripts/product-upload-http-test.js', 'scripts/production-http-test.js']) {
   const adminCheck = spawnSync(process.execPath, [path.join(root, testFile)], { encoding: 'utf8' });
   if (adminCheck.status !== 0) {
     console.error(adminCheck.stderr || adminCheck.stdout || `Admin check failed: ${testFile}`);
@@ -146,7 +152,7 @@ if (!serverSource.includes("app.get('/api/admin/products'") || !serverSource.inc
   process.exit(1);
 }
 const dbSource = fs.readFileSync(path.join(root, 'db.js'), 'utf8');
-if (!['categories', 'products', 'product_variants', 'product_images'].every((table) => dbSource.includes(`CREATE TABLE IF NOT EXISTS ${table}`))) {
+if (!['categories', 'products', 'product_variants', 'product_images', 'site_media'].every((table) => dbSource.includes(`CREATE TABLE IF NOT EXISTS ${table}`))) {
   console.error('Catalog database tables are incomplete');
   process.exit(1);
 }
@@ -157,6 +163,14 @@ if (/DROP\s+TABLE/i.test(dbSource)) {
 const adminCss = fs.readFileSync(path.join(root, 'public/admin.css'), 'utf8');
 if (!adminCss.includes('@media (max-width: 760px)') || !adminCss.includes('overflow-x: hidden')) {
   console.error('Admin responsive safeguards are missing');
+  process.exit(1);
+}
+if (!adminCss.includes('.admin-sidebar-backdrop[hidden]') || !adminCss.includes('display: none !important')) {
+  console.error('Closed mobile admin backdrop must never intercept the page');
+  process.exit(1);
+}
+if (!css.includes('touch-action: pan-y') || !fs.readFileSync(path.join(root, 'public/app.js'), 'utf8').includes("'PointerEvent' in window")) {
+  console.error('Mobile hero swipe safeguards are missing');
   process.exit(1);
 }
 const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
