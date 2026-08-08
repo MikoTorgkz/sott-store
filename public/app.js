@@ -57,9 +57,10 @@ if (heroCarousel) {
   const track = heroCarousel.querySelector('[data-hero-track]');
   const slides = [...track.children];
   const dots = [...heroCarousel.querySelectorAll('[data-hero-dot]')];
+  const swipe = window.SottHeroSwipe;
   let currentSlide = 0;
   let gesture = null;
-  const swipeThreshold = 52;
+  let suppressClickUntil = 0;
 
   function showHeroSlide(index) {
     currentSlide = (index + slides.length) % slides.length;
@@ -74,33 +75,75 @@ if (heroCarousel) {
   heroCarousel.querySelector('[data-hero-prev]').addEventListener('click', () => showHeroSlide(currentSlide - 1));
   heroCarousel.querySelector('[data-hero-next]').addEventListener('click', () => showHeroSlide(currentSlide + 1));
   dots.forEach((dot) => dot.addEventListener('click', () => showHeroSlide(Number(dot.dataset.heroDot))));
-  function beginGesture(x, y, pointerId = null) { gesture = { x, y, pointerId }; }
-  function endGesture(x, y, pointerId = null) {
-    if (!gesture || (gesture.pointerId !== null && pointerId !== gesture.pointerId)) return;
-    const distanceX = x - gesture.x;
-    const distanceY = y - gesture.y;
+
+  function resetDrag() {
+    track.style.transition = '';
+    track.style.transform = `translateX(-${currentSlide * 100}%)`;
+  }
+
+  function cancelGesture() {
     gesture = null;
-    if (Math.abs(distanceX) < swipeThreshold || Math.abs(distanceX) <= Math.abs(distanceY) * 1.15) return;
-    showHeroSlide(currentSlide + (distanceX < 0 ? 1 : -1));
+    resetDrag();
   }
-  if ('PointerEvent' in window) {
-    heroCarousel.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      beginGesture(event.clientX, event.clientY, event.pointerId);
-    }, { passive: true });
-    heroCarousel.addEventListener('pointerup', (event) => endGesture(event.clientX, event.clientY, event.pointerId), { passive: true });
-    heroCarousel.addEventListener('pointercancel', () => { gesture = null; }, { passive: true });
-  } else {
-    heroCarousel.addEventListener('touchstart', (event) => {
-      const touch = event.changedTouches[0];
-      if (touch) beginGesture(touch.clientX, touch.clientY);
-    }, { passive: true });
-    heroCarousel.addEventListener('touchend', (event) => {
-      const touch = event.changedTouches[0];
-      if (touch) endGesture(touch.clientX, touch.clientY);
-    }, { passive: true });
-    heroCarousel.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
-  }
+
+  heroCarousel.addEventListener('touchstart', (event) => {
+    if (!swipe || event.touches.length !== 1) return cancelGesture();
+    const touch = event.touches[0];
+    gesture = { startX: touch.clientX, startY: touch.clientY, currentX: touch.clientX, currentY: touch.clientY, axis: null };
+  }, { passive: true });
+
+  heroCarousel.addEventListener('touchmove', (event) => {
+    if (!gesture || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    gesture.currentX = touch.clientX;
+    gesture.currentY = touch.clientY;
+    const deltaX = gesture.currentX - gesture.startX;
+    const deltaY = gesture.currentY - gesture.startY;
+    if (!gesture.axis) gesture.axis = swipe.getGestureAxis(deltaX, deltaY);
+    if (gesture.axis !== 'horizontal') return;
+
+    event.preventDefault();
+    let visualDelta = deltaX;
+    const atFirst = currentSlide === 0 && deltaX > 0;
+    const atLast = currentSlide === slides.length - 1 && deltaX < 0;
+    if (atFirst || atLast) visualDelta *= 0.25;
+    track.style.transition = 'none';
+    track.style.transform = `translateX(calc(-${currentSlide * 100}% + ${visualDelta}px))`;
+  }, { passive: false });
+
+  heroCarousel.addEventListener('touchend', (event) => {
+    if (!gesture || !swipe) return cancelGesture();
+    const touch = event.changedTouches[0];
+    if (touch) {
+      gesture.currentX = touch.clientX;
+      gesture.currentY = touch.clientY;
+    }
+    const deltaX = gesture.currentX - gesture.startX;
+    const deltaY = gesture.currentY - gesture.startY;
+    const wasHorizontal = gesture.axis === 'horizontal';
+    const direction = swipe.getSwipeDirection(deltaX, deltaY);
+    gesture = null;
+    track.style.transition = '';
+
+    if (wasHorizontal && direction !== 0) {
+      suppressClickUntil = Date.now() + 450;
+      const nextSlide = Math.max(0, Math.min(slides.length - 1, currentSlide + direction));
+      showHeroSlide(nextSlide);
+    } else {
+      resetDrag();
+    }
+  }, { passive: true });
+
+  heroCarousel.addEventListener('touchcancel', cancelGesture, { passive: true });
+  heroCarousel.addEventListener('dragstart', (event) => {
+    if (event.target.closest('img')) event.preventDefault();
+  });
+  heroCarousel.addEventListener('click', (event) => {
+    if (Date.now() >= suppressClickUntil) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
   heroCarousel.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') showHeroSlide(currentSlide - 1);
     if (event.key === 'ArrowRight') showHeroSlide(currentSlide + 1);
