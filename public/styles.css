@@ -36,8 +36,8 @@ button { color: inherit; font: inherit; }
 .language-switcher button { min-width: 34px; min-height: 30px; padding: 0 8px; border: 0; border-radius: 999px; color: var(--brown); background: transparent; font-size: 10px; font-weight: 800; letter-spacing: .05em; cursor: pointer; }
 .language-switcher button.is-active { color: #fff; background: var(--brown); }
 .language-switcher button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
-.icon-button { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; cursor: default; }
-.icon-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.55; }
+.icon-button { position: relative; width: 38px; height: 38px; margin: 0; padding: 0; display: grid; place-items: center; border: 0; border-radius: 0; background: transparent; -webkit-appearance: none; appearance: none; line-height: 0; cursor: default; }
+.icon-button svg { width: 19px; height: 19px; max-width: none; flex: none; fill: none; stroke: currentColor; stroke-width: 1.55; }
 .cart-badge { position: absolute; top: 1px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; border: 2px solid var(--cream); border-radius: 20px; background: var(--orange); color: white; font-size: 8px; font-weight: 800; }
 .menu-toggle { display: none; width: 42px; height: 42px; padding: 11px 8px; border: 0; background: transparent; }
 .menu-toggle span { display: block; height: 1px; margin: 5px 0; background: var(--brown); transition: transform .2s, opacity .2s; }
@@ -141,6 +141,7 @@ footer { background: var(--beige); }
   .header-actions .favorite-header, .header-actions .cart-icon { width: 42px; height: 42px; display: grid; flex: 0 0 42px; }
   .header-actions .favorite-header svg { width: 20px; height: 20px; }
   .header-actions .cart-icon svg { width: 26px; height: 26px; }
+  .header-actions .icon-button { align-self: center; justify-self: center; }
   .language-switcher { flex: 0 0 auto; height: 40px; padding: 0; }
   .language-switcher button { min-width: 31px; min-height: 38px; padding: 0 4px; font-size: 12px; letter-spacing: .02em; }
   .cart-badge, .favorite-badge { top: 0; right: 0; }
